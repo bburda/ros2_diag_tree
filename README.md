@@ -1,5 +1,7 @@
 # ros2_diag_tree
 
+[![CI](https://github.com/bburda/ros2_diag_tree/actions/workflows/ci.yml/badge.svg)](https://github.com/bburda/ros2_diag_tree/actions/workflows/ci.yml)
+
 Modern, SOVD-compatible diagnostics for ROS 2 robots, built around an entity tree
 (Area / Component / Function / App) for runtime discovery, health modeling, and troubleshooting.
 
@@ -30,6 +32,26 @@ so the same concepts can be used across robots, vehicles, and other embedded sys
 - Runtime discovery of what is actually running on the robot
 - Health state modeled per Area / Component / Function / App
 - Better remote troubleshooting and fleet-level observability for ROS 2 robots
+
+## Development
+
+### Building
+
+```bash
+colcon build --symlink-install
+```
+
+### Testing
+
+```bash
+colcon test
+colcon test-result --verbose
+```
+
+### CI/CD
+
+All pull requests are automatically built and tested using GitHub Actions.
+The CI workflow runs on Ubuntu 24.04 with ROS 2 Jazzy.
 
 ## Contributing
 
