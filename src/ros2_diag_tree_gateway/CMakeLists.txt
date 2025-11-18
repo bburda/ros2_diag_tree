@@ -9,19 +9,29 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 
-# Add httplib dependency
+# Add dependencies via FetchContent
 include(FetchContent)
+
+# httplib
 fetchcontent_declare(
   httplib
   GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
   GIT_TAG v0.14.3
 )
-fetchcontent_makeavailable(httplib)
+
+# nlohmann/json
+fetchcontent_declare(
+  json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG v3.11.3
+)
+
+fetchcontent_makeavailable(httplib json)
 
 # Gateway node executable
 add_executable(gateway_node src/gateway_node.cpp)
 ament_target_dependencies(gateway_node rclcpp)
-target_link_libraries(gateway_node httplib::httplib)
+target_link_libraries(gateway_node httplib::httplib nlohmann_json::nlohmann_json)
 target_include_directories(gateway_node PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
@@ -41,7 +51,7 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
 
   ament_add_gtest(test_gateway_node test/test_gateway_node.cpp)
-  target_link_libraries(test_gateway_node httplib::httplib)
+  target_link_libraries(test_gateway_node httplib::httplib nlohmann_json::nlohmann_json)
   ament_target_dependencies(test_gateway_node rclcpp)
 endif()
 

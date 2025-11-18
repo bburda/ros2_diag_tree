@@ -19,16 +19,19 @@
 #include <thread>
 
 #include <httplib.h> // NOLINT(build/include_order)
+#include <nlohmann/json.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 using namespace std::chrono_literals;
+
+static constexpr char VERSION[] = "0.1.0";
 
 // Simple GatewayNode class for testing
 class GatewayNode : public rclcpp::Node {
 public:
   GatewayNode()
-      : Node("gateway_node"),
-        http_server_(std::make_unique<httplib::Server>()) {
+      : Node("gateway_node"), http_server_(std::make_unique<httplib::Server>()),
+        node_name_(this->get_name()) {
     this->declare_parameter<int>("port", 8080);
     this->declare_parameter<std::string>("host", "0.0.0.0");
 
@@ -40,8 +43,8 @@ public:
     server_thread_ =
         std::thread([this]() { http_server_->listen(host_.c_str(), port_); });
 
-    // Give the server a moment to start
-    std::this_thread::sleep_for(100ms);
+    // Wait for the server to be ready by polling
+    wait_for_server_ready();
   }
 
   ~GatewayNode() {
@@ -55,20 +58,45 @@ public:
   std::string get_host() const { return host_; }
 
 private:
+  void wait_for_server_ready() {
+    const auto start = std::chrono::steady_clock::now();
+    const auto timeout = std::chrono::seconds(2);
+    httplib::Client client(host_.c_str(), port_);
+    while (std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::steady_clock::now() - start) < timeout) {
+      if (auto res = client.Get("/health")) {
+        if (res->status == 200) {
+          return;
+        }
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    }
+    throw std::runtime_error("HTTP server failed to start within timeout");
+  }
+
   void setup_endpoints() {
     http_server_->Get(
         "/health", [this](const httplib::Request &req, httplib::Response &res) {
           (void)req;
 
-          std::string health_json = R"({
-  "status": "ok",
-  "node": ")" + std::string(this->get_name()) +
-                                    R"(",
-  "timestamp": )" + std::to_string(this->now().seconds()) +
-                                    R"(
-})";
+          nlohmann::json health_json = {{"status", "ok"},
+                                        {"node", node_name_},
+                                        {"timestamp", this->now().seconds()}};
 
-          res.set_content(health_json, "application/json");
+          res.set_content(health_json.dump(), "application/json");
+          res.status = 200;
+        });
+
+    http_server_->Get(
+        "/", [this](const httplib::Request &req, httplib::Response &res) {
+          (void)req;
+
+          nlohmann::json info_json = {
+              {"service", "ros2_diag_tree_gateway"},
+              {"version", VERSION},
+              {"endpoints", nlohmann::json::array({"/health", "/"})}};
+
+          res.set_content(info_json.dump(), "application/json");
           res.status = 200;
         });
   }
@@ -77,6 +105,7 @@ private:
   std::thread server_thread_;
   int port_;
   std::string host_;
+  std::string node_name_;
 };
 
 class TestGatewayNode : public ::testing::Test {
@@ -100,11 +129,35 @@ TEST_F(TestGatewayNode, test_health_endpoint) {
   EXPECT_EQ(res->status, 200);
   EXPECT_EQ(res->get_header_value("Content-Type"), "application/json");
 
-  // Verify JSON contains expected fields
-  EXPECT_TRUE(res->body.find("\"status\": \"ok\"") != std::string::npos);
-  EXPECT_TRUE(res->body.find("\"node\": \"gateway_node\"") !=
-              std::string::npos);
-  EXPECT_TRUE(res->body.find("\"timestamp\"") != std::string::npos);
+  // Parse and verify JSON
+  auto json_response = nlohmann::json::parse(res->body);
+  EXPECT_EQ(json_response["status"], "ok");
+  EXPECT_EQ(json_response["node"], "gateway_node");
+  EXPECT_TRUE(json_response.contains("timestamp"));
+  EXPECT_TRUE(json_response["timestamp"].is_number());
+}
+
+TEST_F(TestGatewayNode, test_root_endpoint) {
+  auto node = std::make_shared<GatewayNode>();
+
+  // Create HTTP client
+  httplib::Client client("localhost", node->get_port());
+
+  // Call / endpoint
+  auto res = client.Get("/");
+
+  // Verify response
+  ASSERT_TRUE(res);
+  EXPECT_EQ(res->status, 200);
+  EXPECT_EQ(res->get_header_value("Content-Type"), "application/json");
+
+  // Parse and verify JSON
+  auto json_response = nlohmann::json::parse(res->body);
+  EXPECT_EQ(json_response["service"], "ros2_diag_tree_gateway");
+  EXPECT_EQ(json_response["version"], "0.1.0");
+  EXPECT_TRUE(json_response.contains("endpoints"));
+  EXPECT_TRUE(json_response["endpoints"].is_array());
+  EXPECT_EQ(json_response["endpoints"].size(), 2);
 }
 
 int main(int argc, char **argv) {

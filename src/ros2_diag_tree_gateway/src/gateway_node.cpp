@@ -17,15 +17,18 @@
 #include <thread>
 
 #include <httplib.h> // NOLINT(build/include_order)
+#include <nlohmann/json.hpp>
 #include <rclcpp/rclcpp.hpp>
 
 using namespace std::chrono_literals;
 
+static constexpr char VERSION[] = "0.1.0";
+
 class GatewayNode : public rclcpp::Node {
 public:
   GatewayNode()
-      : Node("gateway_node"),
-        http_server_(std::make_unique<httplib::Server>()) {
+      : Node("gateway_node"), http_server_(std::make_unique<httplib::Server>()),
+        node_name_(this->get_name()) {
     // Declare parameters
     this->declare_parameter<int>("port", 8080);
     this->declare_parameter<std::string>("host", "0.0.0.0");
@@ -36,14 +39,12 @@ public:
     // Setup HTTP endpoints
     setup_endpoints();
 
+    RCLCPP_INFO(this->get_logger(), "Starting HTTP server on %s:%d",
+                host_.c_str(), port_);
+
     // Start HTTP server in a separate thread
-    server_thread_ = std::thread([this]() {
-      RCLCPP_INFO(this->get_logger(), "Starting HTTP server on %s:%d",
-                  host_.c_str(), port_);
-      if (!http_server_->listen(host_.c_str(), port_)) {
-        RCLCPP_ERROR(this->get_logger(), "Failed to start HTTP server");
-      }
-    });
+    server_thread_ =
+        std::thread([this]() { http_server_->listen(host_.c_str(), port_); });
 
     RCLCPP_INFO(this->get_logger(), "Gateway node initialized");
   }
@@ -63,18 +64,12 @@ private:
         "/health", [this](const httplib::Request &req, httplib::Response &res) {
           (void)req; // Unused parameter
 
-          std::string health_json = R"({
-  "status": "ok",
-  "node": ")" + std::string(this->get_name()) +
-                                    R"(",
-  "timestamp": )" + std::to_string(this->now().seconds()) +
-                                    R"(
-})";
+          nlohmann::json health_json = {{"status", "ok"},
+                                        {"node", node_name_},
+                                        {"timestamp", this->now().seconds()}};
 
-          res.set_content(health_json, "application/json");
+          res.set_content(health_json.dump(), "application/json");
           res.status = 200;
-
-          RCLCPP_DEBUG(this->get_logger(), "Health check requested");
         });
 
     // Root endpoint
@@ -82,14 +77,12 @@ private:
         "/", [this](const httplib::Request &req, httplib::Response &res) {
           (void)req; // Unused parameter
 
-          std::string info_json =
-              R"({
-  "service": "ros2_diag_tree_gateway",
-  "version": "0.1.0",
-  "endpoints": ["/health", "/"]
-})";
+          nlohmann::json info_json = {
+              {"service", "ros2_diag_tree_gateway"},
+              {"version", VERSION},
+              {"endpoints", nlohmann::json::array({"/health", "/"})}};
 
-          res.set_content(info_json, "application/json");
+          res.set_content(info_json.dump(), "application/json");
           res.status = 200;
         });
   }
@@ -98,6 +91,7 @@ private:
   std::thread server_thread_;
   int port_;
   std::string host_;
+  std::string node_name_;
 };
 
 int main(int argc, char *argv[]) {
