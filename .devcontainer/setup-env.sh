@@ -14,8 +14,10 @@ elif [ -n "$BASH_VERSION" ]; then
     source ~/.bashrc 2>/dev/null || true
 fi
 
-# Initialize rosdep
-sudo rosdep init
+# Initialize rosdep if not already initialized
+if [ ! -f /etc/ros/rosdep/sources.list.d/20-default.list ]; then
+    sudo rosdep init
+fi
 rosdep update
 
 # Test installations

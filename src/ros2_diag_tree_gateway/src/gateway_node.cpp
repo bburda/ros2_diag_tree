@@ -16,7 +16,7 @@
 #include <memory>
 #include <thread>
 
-#include <httplib.h> // NOLINT(build/include_order)
+#include <httplib.h>  // NOLINT(build/include_order)
 #include <nlohmann/json.hpp>
 #include <rclcpp/rclcpp.hpp>
 
@@ -62,7 +62,7 @@ private:
     // Health endpoint
     http_server_->Get(
         "/health", [this](const httplib::Request &req, httplib::Response &res) {
-          (void)req; // Unused parameter
+          (void)req;  // Unused parameter
 
           nlohmann::json health_json = {{"status", "ok"},
                                         {"node", node_name_},
@@ -75,7 +75,7 @@ private:
     // Root endpoint
     http_server_->Get(
         "/", [this](const httplib::Request &req, httplib::Response &res) {
-          (void)req; // Unused parameter
+          (void)req;  // Unused parameter
 
           nlohmann::json info_json = {
               {"service", "ros2_diag_tree_gateway"},

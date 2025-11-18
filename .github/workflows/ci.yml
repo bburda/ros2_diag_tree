@@ -37,5 +37,4 @@ jobs:
       - name: Show test results
         if: always()
         run: |
-          source /opt/ros/jazzy/setup.bash
           colcon test-result --verbose

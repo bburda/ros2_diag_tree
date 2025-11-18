@@ -35,6 +35,12 @@ so the same concepts can be used across robots, vehicles, and other embedded sys
 
 ## Development
 
+### Installing Dependencies
+
+```bash
+rosdep install --from-paths src --ignore-src -r -y
+```
+
 ### Building
 
 ```bash
