@@ -28,11 +28,17 @@ jobs:
           source /opt/ros/jazzy/setup.bash
           colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
 
-      - name: Run tests
+      - name: Run unit tests
         run: |
           source /opt/ros/jazzy/setup.bash
           source install/setup.bash
-          colcon test --return-code-on-test-failure
+          colcon test --return-code-on-test-failure --ctest-args -E test_integration
+
+      - name: Run integration tests
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          colcon test --return-code-on-test-failure --ctest-args -R test_integration
 
       - name: Show test results
         if: always()

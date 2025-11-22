@@ -49,9 +49,23 @@ colcon build --symlink-install
 
 ### Testing
 
+Run all tests:
+
 ```bash
 colcon test
 colcon test-result --verbose
+```
+
+Run only unit tests:
+
+```bash
+colcon test --ctest-args -E test_integration
+```
+
+Run only integration tests:
+
+```bash
+colcon test --ctest-args -R test_integration
 ```
 
 ### CI/CD
