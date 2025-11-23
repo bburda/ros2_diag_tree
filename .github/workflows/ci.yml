@@ -3,10 +3,13 @@ name: CI
 on:
   pull_request:
     branches: [main]
+  push:
+    branches: [main]
 
 jobs:
   build-and-test:
     runs-on: ubuntu-24.04
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
@@ -17,6 +20,12 @@ jobs:
         with:
           required-ros-distributions: jazzy
 
+      - name: Cache rosdep packages
+        uses: actions/cache@v4
+        with:
+          path: /var/cache/apt
+          key: rosdep-${{ hashFiles('**/package.xml') }}
+
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -26,21 +35,52 @@ jobs:
       - name: Build packages
         run: |
           source /opt/ros/jazzy/setup.bash
-          colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
+          colcon build --symlink-install \
+            --cmake-args -DCMAKE_BUILD_TYPE=Release \
+            --event-handlers console_direct+
+
+      - name: Run linters
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          colcon test --packages-select ros2_medkit_gateway \
+            --event-handlers console_direct+ \
+            --ctest-args -L linters
+
+      - name: Show linter results
+        if: always()
+        run: colcon test-result --verbose
 
       - name: Run unit tests
         run: |
           source /opt/ros/jazzy/setup.bash
           source install/setup.bash
-          colcon test --return-code-on-test-failure --ctest-args -E test_integration
+          colcon test --return-code-on-test-failure \
+            --event-handlers console_direct+ \
+            --ctest-args -E test_integration
+
+      - name: Show unit test results
+        if: always()
+        run: colcon test-result --verbose
 
       - name: Run integration tests
+        timeout-minutes: 10
         run: |
           source /opt/ros/jazzy/setup.bash
           source install/setup.bash
-          colcon test --return-code-on-test-failure --ctest-args -R test_integration
+          colcon test --return-code-on-test-failure \
+            --event-handlers console_direct+ \
+            --ctest-args -R test_integration
 
-      - name: Show test results
+      - name: Show integration test results
         if: always()
-        run: |
-          colcon test-result --verbose
+        run: colcon test-result --verbose
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            log/
+            build/*/test_results/
