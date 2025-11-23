@@ -6,21 +6,20 @@ labels: enhancement
 assignees: ''
 ---
 
-# Feature request / General issue
+## Summary
 
-Please describe the request or issue:
+Briefly describe the problem or the feature you’re requesting.
 
-### Proposal
+---
 
-Describe the change or feature you would like to see.
+## Proposed solution (optional)
 
-### Motivation
+How do you think this could be solved?
 
-Why is this change important? Who does it benefit?
+<!-- If you’re not sure, you can leave this empty. -->
 
-### Alternatives considered
+---
 
-Other options or implementations you considered.
+## Additional context (optional)
 
-### Additional context
-Add any other context or screenshots about the feature request here.
+Any extra details, links, screenshots, etc.

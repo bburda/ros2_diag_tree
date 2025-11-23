@@ -1,36 +1,38 @@
 # Pull Request
 
-<!-- Thank you for contributing to ros2_medkit! Please fill out this template to help us review your PR. -->
+<!-- Thanks for contributing to ros2_medkit! -->
 
-## Description
+## Summary
 
-What changed and why.
+Briefly describe what changed and why.
 
-## Type of change
+---
 
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] Documentation update
+## Issue
 
-## Related issues
+Link the related issue (required):
 
-Fixes #<issue number> (if applicable)
-Related to #<issue number> (if applicable)
+- closes #<issue number>
 
-## How has this been tested?
+---
 
-Describe the tests you ran to verify your changes.
+## Type
+
+- [ ] Bug fix
+- [ ] New feature or tests
+- [ ] Breaking change
+- [ ] Documentation only
+
+---
+
+## Testing
+
+How was this tested / how should reviewers verify it?
+
+---
 
 ## Checklist
 
-- [ ] My code follows the project's coding style
-- [ ] I ran `colcon build` and the build succeeds without warnings
-- [ ] I ran `colcon test` and all tests pass locally
-- [ ] I added/updated tests where applicable
-- [ ] I updated documentation where applicable
-- [ ] My commit messages are clear and descriptive
-
-## Additional notes for reviewers
-
-<!-- Add any additional information that would help reviewers understand your changes -->
+- [ ] Breaking changes are clearly described (and announced in docs / changelog if needed)
+- [ ] Tests were added or updated if needed
+- [ ] Docs were updated if behavior or public API changed
