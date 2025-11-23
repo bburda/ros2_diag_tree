@@ -20,12 +20,6 @@ jobs:
         with:
           required-ros-distributions: jazzy
 
-      - name: Cache rosdep packages
-        uses: actions/cache@v4
-        with:
-          path: /var/cache/apt
-          key: rosdep-${{ hashFiles('**/package.xml') }}
-
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -39,40 +33,15 @@ jobs:
             --cmake-args -DCMAKE_BUILD_TYPE=Release \
             --event-handlers console_direct+
 
-      - name: Run linters
-        run: |
-          source /opt/ros/jazzy/setup.bash
-          source install/setup.bash
-          colcon test --packages-select ros2_medkit_gateway \
-            --event-handlers console_direct+ \
-            --ctest-args -L linters
-
-      - name: Show linter results
-        if: always()
-        run: colcon test-result --verbose
-
-      - name: Run unit tests
+      - name: Run tests
+        timeout-minutes: 15
         run: |
           source /opt/ros/jazzy/setup.bash
           source install/setup.bash
           colcon test --return-code-on-test-failure \
-            --event-handlers console_direct+ \
-            --ctest-args -E test_integration
+            --event-handlers console_direct+
 
-      - name: Show unit test results
-        if: always()
-        run: colcon test-result --verbose
-
-      - name: Run integration tests
-        timeout-minutes: 10
-        run: |
-          source /opt/ros/jazzy/setup.bash
-          source install/setup.bash
-          colcon test --return-code-on-test-failure \
-            --event-handlers console_direct+ \
-            --ctest-args -R test_integration
-
-      - name: Show integration test results
+      - name: Show test results
         if: always()
         run: colcon test-result --verbose
 

@@ -61,11 +61,11 @@ Run linters:
 
 ```bash
 source install/setup.bash
-colcon test --packages-select ros2_medkit_gateway --ctest-args -L linters
+colcon test --ctest-args -L linters
 colcon test-result --verbose
 ```
 
-Run only unit tests:
+Run only unit tests (everything except integration):
 
 ```bash
 source install/setup.bash
@@ -84,12 +84,13 @@ colcon test-result --verbose
 ### CI/CD
 
 All pull requests and pushes to main are automatically built and tested using GitHub Actions.
-The CI workflow runs on Ubuntu 24.04 with ROS 2 Jazzy and includes:
+The CI workflow runs on Ubuntu 24.04 with ROS 2 Jazzy, executes a single `colcon test` to cover:
 
 - Code linting and formatting checks
 - Unit tests
 - Integration tests with demo automotive nodes
-- Automatic upload of test logs and results for all runs
+
+After every run the workflow always calls `colcon test-result --verbose` and uploads the generated logs/results as artifacts for debugging.
 
 ## Contributing
 
