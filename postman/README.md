@@ -11,6 +11,7 @@ Includes below endpoints:
 - ✅ GET `/areas` - List all areas
 - ✅ GET `/components` - List all components
 - ✅ GET `/areas/{area_id}/components` - List components in specific area
+- ✅ GET `/components/{component_id}/data` - Read all topic data from a component
 
 ## Quick Start
 
@@ -58,6 +59,11 @@ ros2 launch ros2_medkit_gateway demo_nodes.launch.py
 11. Click **"GET Area Components"**
 12. Click **Send**
 13. You should see only powertrain components: `[{"id": "temp_sensor", "area": "powertrain", ...}, ...]`
+
+14. Expand **"Component Data"** folder
+15. Click **"GET Component Data"**
+16. Click **Send**
+17. You should see topic data: `[{"topic": "/powertrain/engine/temperature", "timestamp": ..., "data": {...}}, ...]`
 
 ## API Variables
 

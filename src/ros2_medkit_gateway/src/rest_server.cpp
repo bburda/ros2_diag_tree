@@ -56,6 +56,11 @@ void RESTServer::setup_routes() {
     server_->Get(R"(/areas/([^/]+)/components)", [this](const httplib::Request& req, httplib::Response& res) {
         handle_area_components(req, res);
     });
+
+    // Component data
+    server_->Get(R"(/components/([^/]+)/data)", [this](const httplib::Request& req, httplib::Response& res) {
+        handle_component_data(req, res);
+    });
 }
 
 void RESTServer::start() {
@@ -219,6 +224,73 @@ void RESTServer::handle_area_components(const httplib::Request& req, httplib::Re
         RCLCPP_ERROR(
             rclcpp::get_logger("rest_server"),
             "Error in handle_area_components: %s",
+            e.what()
+        );
+    }
+}
+
+void RESTServer::handle_component_data(const httplib::Request& req, httplib::Response& res) {
+    std::string component_id;
+    try {
+        // Extract component_id from URL path
+        if (req.matches.size() < 2) {
+            res.status = 400;
+            res.set_content(
+                json{{"error", "Invalid request"}}.dump(2),
+                "application/json"
+            );
+            return;
+        }
+
+        component_id = req.matches[1];
+        // TODO(mfaferek93): Add input validation for component_id
+        // Should validate against ROS 2 naming conventions (alphanumeric, /, _)
+        // and URL-decode if necessary
+        const auto cache = node_->get_entity_cache();
+
+        // Find component in cache
+        std::string component_namespace;
+        bool component_found = false;
+
+        for (const auto& component : cache.components) {
+            if (component.id == component_id) {
+                component_namespace = component.fqn;
+                component_found = true;
+                break;
+            }
+        }
+
+        if (!component_found) {
+            res.status = 404;
+            res.set_content(
+                json{
+                    {"error", "Component not found"},
+                    {"component_id", component_id}
+                }.dump(2),
+                "application/json"
+            );
+            return;
+        }
+
+        // Get component data from DataAccessManager
+        auto data_access_mgr = node_->get_data_access_manager();
+        json component_data = data_access_mgr->get_component_data(component_namespace);
+
+        res.set_content(component_data.dump(2), "application/json");
+    } catch (const std::exception& e) {
+        res.status = 500;
+        res.set_content(
+            json{
+                {"error", "Failed to retrieve component data"},
+                {"details", e.what()},
+                {"component_id", component_id}
+            }.dump(2),
+            "application/json"
+        );
+        RCLCPP_ERROR(
+            rclcpp::get_logger("rest_server"),
+            "Error in handle_component_data for component '%s': %s",
+            component_id.c_str(),
             e.what()
         );
     }
