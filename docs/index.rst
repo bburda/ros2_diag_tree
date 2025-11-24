@@ -6,16 +6,18 @@
 ros2_medkit documentation
 =========================
 
-Add your content using ``reStructuredText`` syntax. See the
-`reStructuredText <https://www.sphinx-doc.org/en/master/usage/restructuredtext/index.html>`_
-documentation for details.
-
+Welcome to the documentation for **ros2_medkit**.
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: General
+
+   introduction
+   design/index
+
+.. toctree::
+   :maxdepth: 4
+   :caption: Requirements Engineering
 
    requirements/index
-   design/index
-   verification
 

@@ -42,6 +42,9 @@ jobs:
                   sudo apt-get install -y graphviz plantuml
                   pip install -e docs/.[dev]
 
+            - name: Generate verification report
+              run: python3 scripts/generate_verification.py
+
             - name: Check links
               working-directory: docs
               run: sphinx-build -b linkcheck . _build/linkcheck
@@ -66,4 +69,3 @@ jobs:
             - name: Deploy to GitHub Pages
               id: deployment
               uses: actions/deploy-pages@v4
-

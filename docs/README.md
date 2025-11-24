@@ -85,6 +85,48 @@ Requirements are managed using `sphinx-needs`. To add a new requirement:
        Description of the requirement.
     ```
 
+## Traceability and Testing
+
+We use a bidirectional traceability approach to link Requirements to Tests and Code.
+
+### 1. Link Code to Test Case
+
+In your test code (C++ or Python), add comments to indicate which Requirement ID is being verified. The `generate_verification.py` script will automatically scan these tags and generate the `verification.rst` file.
+
+**Supported Tags:**
+*   `@verifies REQ_ID_1, REQ_ID_2` (Preferred)
+*   `Links to: REQ_ID` (Legacy)
+*   `Verifies: REQ_ID` (Legacy)
+
+#### C++ Example (`.cpp`)
+
+```cpp
+TEST_F(TestGatewayNode, test_health_endpoint) {
+  // @verifies REQ_INTEROP_001
+  auto node = std::make_shared<GatewayNode>();
+  // ...
+}
+```
+
+#### Python Example (`.py`)
+
+```python
+def test_root_endpoint(self):
+    """
+    Test GET / returns gateway status and version.
+
+    @verifies REQ_INTEROP_010
+    """
+    data = self._get_json('/')
+```
+
+This establishes the chain: **Requirement** <-> **Test Implementation (Code)** <-> **Verification Report**.
+
+**Note:** Only tests that verify at least one requirement will be included in the generated report.
+
 ## CI/CD
 
 The documentation is automatically built and deployed to GitHub Pages via GitHub Actions. The workflow is defined in `.github/workflows/docs.yml`.
+
+The `verification.rst` file is automatically generated during the CI build process, ensuring that the documentation always reflects the current state of the code.
+
