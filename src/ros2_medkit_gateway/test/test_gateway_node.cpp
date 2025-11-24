@@ -18,7 +18,7 @@
 #include <memory>
 #include <thread>
 
-#include <httplib.h>  // NOLINT(build/include_order)
+#include <httplib.h> // NOLINT(build/include_order)
 #include <nlohmann/json.hpp>
 #include <rclcpp/rclcpp.hpp>
 
@@ -116,6 +116,7 @@ protected:
 };
 
 TEST_F(TestGatewayNode, test_health_endpoint) {
+  // @verifies REQ_INTEROP_001
   auto node = std::make_shared<GatewayNode>();
 
   // Create HTTP client
@@ -138,6 +139,7 @@ TEST_F(TestGatewayNode, test_health_endpoint) {
 }
 
 TEST_F(TestGatewayNode, test_root_endpoint) {
+  // @verifies REQ_INTEROP_001, REQ_INTEROP_010
   auto node = std::make_shared<GatewayNode>();
 
   // Create HTTP client
