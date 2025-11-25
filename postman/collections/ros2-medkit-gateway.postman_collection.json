@@ -83,6 +83,31 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Component Data",
+      "item": [
+        {
+          "name": "GET Component Data",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/components/temp_sensor/data",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "components",
+                "temp_sensor",
+                "data"
+              ]
+            },
+            "description": "Read all topic data from a specific component. Returns array of topic samples with metadata (topic, timestamp, data). Change 'temp_sensor' to other component IDs like 'rpm_sensor', 'pressure_sensor', etc."
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }

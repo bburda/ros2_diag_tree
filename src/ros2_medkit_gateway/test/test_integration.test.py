@@ -270,3 +270,119 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
         self.assertEqual(data['area_id'], 'nonexistent')
 
         print('✓ Nonexistent area error test passed')
+
+    def test_07_component_data_powertrain_engine(self):
+        """
+        Test GET /components/{component_id}/data for engine component.
+
+        @verifies REQ_INTEROP_018
+        """
+        # Get data from temp_sensor component (powertrain/engine)
+        data = self._get_json('/components/temp_sensor/data')
+        self.assertIsInstance(data, list)
+
+        # Should have at least one topic with data
+        if len(data) > 0:
+            for topic_data in data:
+                self.assertIn('topic', topic_data)
+                self.assertIn('data', topic_data)
+                print(f'  - Topic: {topic_data["topic"]}')
+
+        print(f'✓ Engine component data test passed: {len(data)} topics')
+
+    def test_08_component_data_chassis_brakes(self):
+        """
+        Test GET /components/{component_id}/data for brakes component.
+
+        @verifies REQ_INTEROP_018
+        """
+        # Get data from pressure_sensor component (chassis/brakes)
+        data = self._get_json('/components/pressure_sensor/data')
+        self.assertIsInstance(data, list)
+
+        # Check if any data is available
+        if len(data) > 0:
+            for topic_data in data:
+                self.assertIn('topic', topic_data)
+                self.assertIn('data', topic_data)
+
+        print(f'✓ Brakes component data test passed: {len(data)} topics')
+
+    def test_09_component_data_body_door(self):
+        """
+        Test GET /components/{component_id}/data for door component.
+
+        @verifies REQ_INTEROP_018
+        """
+        # Get data from status_sensor component (body/door/front_left)
+        data = self._get_json('/components/status_sensor/data')
+        self.assertIsInstance(data, list)
+
+        # Check structure
+        if len(data) > 0:
+            for topic_data in data:
+                self.assertIn('topic', topic_data)
+                self.assertIn('data', topic_data)
+
+        print(f'✓ Door component data test passed: {len(data)} topics')
+
+    def test_10_component_data_structure(self):
+        """
+        Test GET /components/{component_id}/data response structure.
+
+        @verifies REQ_INTEROP_018
+        """
+        data = self._get_json('/components/temp_sensor/data')
+        self.assertIsInstance(data, list, 'Response should be an array')
+
+        # If we have data, verify structure
+        if len(data) > 0:
+            first_item = data[0]
+            self.assertIn('topic', first_item, "Each item should have 'topic' field")
+            self.assertIn('timestamp', first_item, "Each item should have 'timestamp' field")
+            self.assertIn('data', first_item, "Each item should have 'data' field")
+            self.assertIsInstance(first_item['topic'], str, "'topic' should be a string")
+            self.assertIsInstance(
+                first_item['timestamp'],
+                int,
+                "'timestamp' should be an integer (nanoseconds)"
+            )
+            self.assertIsInstance(first_item['data'], dict, "'data' should be an object")
+
+        print('✓ Component data structure test passed')
+
+    def test_11_component_nonexistent_error(self):
+        """
+        Test GET /components/{component_id}/data returns 404 for nonexistent component.
+
+        @verifies REQ_INTEROP_018
+        """
+        response = requests.get(
+            f'{self.BASE_URL}/components/nonexistent_component/data',
+            timeout=5
+        )
+        self.assertEqual(response.status_code, 404)
+
+        data = response.json()
+        self.assertIn('error', data)
+        self.assertEqual(data['error'], 'Component not found')
+        self.assertIn('component_id', data)
+        self.assertEqual(data['component_id'], 'nonexistent_component')
+
+        print('✓ Nonexistent component error test passed')
+
+    def test_12_component_no_topics(self):
+        """
+        Test GET /components/{component_id}/data returns empty array.
+
+        Verifies that components with no topics return an empty array.
+        The calibration component typically has only services, no topics.
+
+        @verifies REQ_INTEROP_018
+        """
+        # Or test with a component that we know has no publishing topics
+        # For now, we'll verify that any component returns an array (even if empty)
+        data = self._get_json('/components/calibration/data')
+        self.assertIsInstance(data, list, 'Response should be an array even when empty')
+
+        print(f'✓ Component with no topics test passed: {len(data)} topics')

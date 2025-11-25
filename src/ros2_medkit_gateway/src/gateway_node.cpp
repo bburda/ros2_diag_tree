@@ -79,6 +79,7 @@ GatewayNode::GatewayNode()
 
     // Initialize managers
     discovery_mgr_ = std::make_unique<DiscoveryManager>(this);
+    data_access_mgr_ = std::make_unique<DataAccessManager>(this);
 
     // Initial discovery
     refresh_cache();
@@ -109,6 +110,10 @@ GatewayNode::~GatewayNode() {
 EntityCache GatewayNode::get_entity_cache() const {
     std::lock_guard<std::mutex> lock(cache_mutex_);
     return entity_cache_;
+}
+
+DataAccessManager* GatewayNode::get_data_access_manager() const {
+    return data_access_mgr_.get();
 }
 
 void GatewayNode::refresh_cache() {

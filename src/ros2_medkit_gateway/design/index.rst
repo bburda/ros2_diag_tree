@@ -30,6 +30,7 @@ The following diagram shows the relationships between the main components of the
 
        class GatewayNode {
            + get_entity_cache(): EntityCache
+           + get_data_access_manager(): DataAccessManager*
        }
 
        class DiscoveryManager {
@@ -40,6 +41,23 @@ The following diagram shows the relationships between the main components of the
        class RESTServer {
            + start(): void
            + stop(): void
+       }
+
+       class DataAccessManager {
+           + get_topic_sample(): json
+           + get_component_data(): json
+           - find_component_topics(): vector<string>
+       }
+
+       class ROS2CLIWrapper {
+           + exec(): string
+           + is_command_available(): bool
+           + escape_shell_arg(): string
+       }
+
+       class OutputParser {
+           + parse_yaml(): json
+           - yaml_to_json(): json
        }
 
        class Area {
@@ -78,13 +96,19 @@ The following diagram shows the relationships between the main components of the
    ' Composition (Gateway owns these)
    GatewayNode *-down-> DiscoveryManager : owns
    GatewayNode *-down-> RESTServer : owns
+   GatewayNode *-down-> DataAccessManager : owns
    GatewayNode *-down-> EntityCache : owns
 
    ' Discovery Manager uses Node interface
    DiscoveryManager --> "rclcpp::Node" : uses
 
-   ' REST Server references Gateway
+   ' REST Server references Gateway and DataAccessManager
    RESTServer --> GatewayNode : uses
+   RESTServer --> DataAccessManager : uses
+
+   ' DataAccessManager owns utility classes
+   DataAccessManager *--> ROS2CLIWrapper : owns
+   DataAccessManager *--> OutputParser : owns
 
    ' Entity Cache aggregates entities
    EntityCache o-right-> Area : contains many
@@ -118,11 +142,31 @@ Main Components
    - Extracts the entity hierarchy from the ROS 2 graph
 
 3. **RESTServer** - Provides the HTTP/REST API
-   - Serves endpoints: ``/health``, ``/``, ``/areas``, ``/components``, ``/areas/{area_id}/components``
+   - Serves endpoints: ``/health``, ``/``, ``/areas``, ``/components``, ``/areas/{area_id}/components``, ``/components/{component_id}/data``
    - Retrieves cached entities from the GatewayNode
+   - Uses DataAccessManager for runtime topic data access
    - Runs on configurable host and port
 
-4. **Data Models** - Entity representations
+4. **DataAccessManager** - Reads runtime data from ROS 2 topics
+   - Samples topics using ROS 2 CLI (``ros2 topic echo``)
+   - Handles timeout and error cases gracefully
+   - Returns topic data as JSON with metadata (topic name, timestamp, data)
+   - Configurable timeout per topic (default: 3 seconds for slow publishers)
+   - Sequential topic sampling with planned parallel sampling improvement
+
+5. **ROS2CLIWrapper** - Executes ROS 2 CLI commands safely
+   - Wraps ``popen()`` with RAII for exception safety during command execution
+   - Checks command exit status to detect failures
+   - Prevents command injection with shell argument escaping
+   - Validates command availability before execution
+
+6. **OutputParser** - Converts ROS 2 CLI output to JSON
+   - Parses YAML output from ``ros2 topic echo`` command
+   - Preserves type information (bool → int → double → string precedence)
+   - Handles multi-document YAML streams correctly
+   - Converts ROS message structures to nested JSON objects
+
+7. **Data Models** - Entity representations
    - ``Area`` - Physical or logical domain
    - ``Component`` - Hardware or software component
    - ``EntityCache`` - Thread-safe cache of discovered entities

@@ -18,6 +18,8 @@ find_package(std_srvs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(rcl_interfaces REQUIRED)
 find_package(nlohmann_json REQUIRED)
+find_package(yaml_cpp_vendor REQUIRED)
+find_package(yaml-cpp REQUIRED)
 
 # Find cpp-httplib using pkg-config
 find_package(PkgConfig REQUIRED)
@@ -32,6 +34,9 @@ add_executable(gateway_node
   src/gateway_node.cpp
   src/rest_server.cpp
   src/discovery_manager.cpp
+  src/ros2_cli_wrapper.cpp
+  src/output_parser.cpp
+  src/data_access_manager.cpp
 )
 
 ament_target_dependencies(gateway_node
@@ -44,6 +49,7 @@ ament_target_dependencies(gateway_node
 target_link_libraries(gateway_node
   PkgConfig::cpp_httplib
   nlohmann_json::nlohmann_json
+  yaml-cpp::yaml-cpp
 )
 
 # Install

@@ -25,6 +25,7 @@
 
 #include "ros2_medkit_gateway/models.hpp"
 #include "ros2_medkit_gateway/discovery_manager.hpp"
+#include "ros2_medkit_gateway/data_access_manager.hpp"
 #include "ros2_medkit_gateway/rest_server.hpp"
 
 namespace ros2_medkit_gateway {
@@ -36,6 +37,14 @@ public:
 
     // Thread-safe accessors for REST server
     EntityCache get_entity_cache() const;
+
+    /**
+     * @brief Get the DataAccessManager instance
+     * @return Raw pointer to DataAccessManager (valid for lifetime of GatewayNode)
+     * @note The returned pointer is valid as long as the GatewayNode exists.
+     *       REST server is stopped before GatewayNode destruction to ensure safe access.
+     */
+    DataAccessManager* get_data_access_manager() const;
 
 private:
     void refresh_cache();
@@ -49,6 +58,7 @@ private:
 
     // Managers
     std::unique_ptr<DiscoveryManager> discovery_mgr_;
+    std::unique_ptr<DataAccessManager> data_access_mgr_;
     std::unique_ptr<RESTServer> rest_server_;
 
     // Cache with thread safety

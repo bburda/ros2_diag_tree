@@ -22,6 +22,10 @@ The ROS 2 Medkit Gateway exposes ROS 2 system information and data through a RES
 - `GET /components` - List all discovered components across all areas
 - `GET /areas/{area_id}/components` - List components within a specific area
 
+### Component Data Endpoints
+
+- `GET /components/{component_id}/data` - Read all topic data from a component
+
 ### API Reference
 
 #### GET /areas
@@ -134,6 +138,70 @@ curl http://localhost:8080/areas/nonexistent/components
 - Filter components by domain (only show powertrain components)
 - Hierarchical navigation (select area → view its components)
 - Area-specific health checks
+
+### Component Data Read Endpoints
+
+#### GET /components/{component_id}/data
+
+Read all topic data from a specific component.
+
+**Example:**
+```bash
+curl http://localhost:8080/components/temp_sensor/data
+```
+
+**Response (200 OK):**
+```json
+[
+  {
+    "topic": "/powertrain/engine/temperature",
+    "timestamp": 1732377600000000000,
+    "data": {
+      "temperature": 85.5,
+      "variance": 0.0
+    }
+  }
+]
+```
+
+**Example (Error - Component Not Found):**
+```bash
+curl http://localhost:8080/components/nonexistent/data
+```
+
+**Response (404 Not Found):**
+```json
+{
+  "error": "Component not found",
+  "component_id": "nonexistent"
+}
+```
+
+**URL Parameters:**
+- `component_id` - Component identifier (e.g., `temp_sensor`, `rpm_sensor`)
+
+**Response Fields:**
+- `topic` - Full topic path
+- `timestamp` - Unix timestamp (nanoseconds since epoch) when data was sampled
+- `data` - Topic message data as JSON object
+
+**Behavior:**
+- Returns array of all topics under the component's namespace
+- Each topic is sampled once with `ros2 topic echo --once`
+- Empty array `[]` returned if component has no topics
+- 3-second timeout per topic to accommodate slow-publishing topics
+
+**Use Cases:**
+- Remote diagnostics - Read all sensor values from a component
+- System monitoring - Get current state of all component topics
+- Data logging - Periodic sampling of component data
+
+**Performance Considerations:**
+- Topic sampling is currently **sequential** (one topic at a time)
+- Response time scales linearly: `(number of topics) × (timeout per topic)`
+- Example: A component with 10 topics could take up to 30 seconds (10 × 3s)
+- For components with many topics, consider querying specific topics individually
+- **Future improvement**: Parallel topic sampling will be implemented to reduce latency
 
 ## Quick Start
 

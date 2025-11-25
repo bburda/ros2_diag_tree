@@ -17,6 +17,7 @@ package "ros2_medkit_gateway" {
 
     class GatewayNode {
         + get_entity_cache(): EntityCache
+        + get_data_access_manager(): DataAccessManager*
     }
 
     class DiscoveryManager {
@@ -27,6 +28,23 @@ package "ros2_medkit_gateway" {
     class RESTServer {
         + start(): void
         + stop(): void
+    }
+
+    class DataAccessManager {
+        + get_topic_sample(): json
+        + get_component_data(): json
+        - find_component_topics(): vector<string>
+    }
+
+    class ROS2CLIWrapper {
+        + exec(): string
+        + is_command_available(): bool
+        + escape_shell_arg(): string
+    }
+
+    class OutputParser {
+        + parse_yaml(): json
+        - yaml_to_json(): json
     }
 
     class Area {
@@ -65,13 +83,19 @@ GatewayNode -up-|> "rclcpp::Node" : extends
 ' Composition (Gateway owns these)
 GatewayNode *-down-> DiscoveryManager : owns
 GatewayNode *-down-> RESTServer : owns
+GatewayNode *-down-> DataAccessManager : owns
 GatewayNode *-down-> EntityCache : owns
 
 ' Discovery Manager uses Node interface
 DiscoveryManager --> "rclcpp::Node" : uses
 
-' REST Server references Gateway
+' REST Server references Gateway and DataAccessManager
 RESTServer --> GatewayNode : uses
+RESTServer --> DataAccessManager : uses
+
+' DataAccessManager owns utility classes
+DataAccessManager *--> ROS2CLIWrapper : owns
+DataAccessManager *--> OutputParser : owns
 
 ' Entity Cache aggregates entities
 EntityCache o-right-> Area : contains many
