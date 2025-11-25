@@ -37,68 +37,68 @@ def generate_test_description():
     """Generate launch description with gateway node, demo nodes, and tests."""
     # Launch the ROS 2 Medkit Gateway node
     gateway_node = launch_ros.actions.Node(
-        package="ros2_medkit_gateway",
-        executable="gateway_node",
-        name="ros2_medkit_gateway",
-        output="screen",
+        package='ros2_medkit_gateway',
+        executable='gateway_node',
+        name='ros2_medkit_gateway',
+        output='screen',
         parameters=[],
     )
 
     # Launch demo automotive sensor nodes
     engine_temp_sensor = launch_ros.actions.Node(
-        package="ros2_medkit_gateway",
-        executable="demo_engine_temp_sensor",
-        name="temp_sensor",
-        namespace="/powertrain/engine",
-        output="screen",
+        package='ros2_medkit_gateway',
+        executable='demo_engine_temp_sensor',
+        name='temp_sensor',
+        namespace='/powertrain/engine',
+        output='screen',
     )
 
     rpm_sensor = launch_ros.actions.Node(
-        package="ros2_medkit_gateway",
-        executable="demo_rpm_sensor",
-        name="rpm_sensor",
-        namespace="/powertrain/engine",
-        output="screen",
+        package='ros2_medkit_gateway',
+        executable='demo_rpm_sensor',
+        name='rpm_sensor',
+        namespace='/powertrain/engine',
+        output='screen',
     )
 
     brake_pressure_sensor = launch_ros.actions.Node(
-        package="ros2_medkit_gateway",
-        executable="demo_brake_pressure_sensor",
-        name="pressure_sensor",
-        namespace="/chassis/brakes",
-        output="screen",
+        package='ros2_medkit_gateway',
+        executable='demo_brake_pressure_sensor',
+        name='pressure_sensor',
+        namespace='/chassis/brakes',
+        output='screen',
     )
 
     door_status_sensor = launch_ros.actions.Node(
-        package="ros2_medkit_gateway",
-        executable="demo_door_status_sensor",
-        name="status_sensor",
-        namespace="/body/door/front_left",
-        output="screen",
+        package='ros2_medkit_gateway',
+        executable='demo_door_status_sensor',
+        name='status_sensor',
+        namespace='/body/door/front_left',
+        output='screen',
     )
 
     brake_actuator = launch_ros.actions.Node(
-        package="ros2_medkit_gateway",
-        executable="demo_brake_actuator",
-        name="actuator",
-        namespace="/chassis/brakes",
-        output="screen",
+        package='ros2_medkit_gateway',
+        executable='demo_brake_actuator',
+        name='actuator',
+        namespace='/chassis/brakes',
+        output='screen',
     )
 
     light_controller = launch_ros.actions.Node(
-        package="ros2_medkit_gateway",
-        executable="demo_light_controller",
-        name="controller",
-        namespace="/body/lights",
-        output="screen",
+        package='ros2_medkit_gateway',
+        executable='demo_light_controller',
+        name='controller',
+        namespace='/body/lights',
+        output='screen',
     )
 
     calibration_service = launch_ros.actions.Node(
-        package="ros2_medkit_gateway",
-        executable="demo_calibration_service",
-        name="calibration",
-        namespace="/powertrain/engine",
-        output="screen",
+        package='ros2_medkit_gateway',
+        executable='demo_calibration_service',
+        name='calibration',
+        namespace='/powertrain/engine',
+        output='screen',
     )
 
     # Start demo nodes with a delay to ensure gateway starts first
@@ -127,7 +127,7 @@ def generate_test_description():
             ]
         ),
         {
-            "gateway_node": gateway_node,
+            'gateway_node': gateway_node,
         },
     )
 
@@ -135,7 +135,7 @@ def generate_test_description():
 class TestROS2MedkitGatewayIntegration(unittest.TestCase):
     """Integration tests for ROS 2 Medkit Gateway REST API and discovery."""
 
-    BASE_URL = "http://localhost:8080"
+    BASE_URL = 'http://localhost:8080'
     # Wait for cache refresh + safety margin
     # Must be kept in sync with gateway_params.yaml refresh_interval_ms (2000ms)
     # Need to wait for at least 2 refresh cycles to ensure all demo nodes are discovered
@@ -151,17 +151,17 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
         max_retries = 5
         for i in range(max_retries):
             try:
-                response = requests.get(f"{cls.BASE_URL}/", timeout=1)
+                response = requests.get(f'{cls.BASE_URL}/', timeout=1)
                 if response.status_code == 200:
                     return
             except requests.exceptions.RequestException:
                 if i == max_retries - 1:
-                    raise unittest.SkipTest("Gateway not responding")
+                    raise unittest.SkipTest('Gateway not responding')
                 time.sleep(1)
 
     def _get_json(self, endpoint: str):
         """Get JSON from an endpoint."""
-        response = requests.get(f"{self.BASE_URL}{endpoint}", timeout=5)
+        response = requests.get(f'{self.BASE_URL}{endpoint}', timeout=5)
         response.raise_for_status()
         return response.json()
 
@@ -171,12 +171,12 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
 
         @verifies REQ_INTEROP_010
         """
-        data = self._get_json("/")
-        self.assertIn("status", data)
-        self.assertIn("version", data)
-        self.assertEqual(data["status"], "ROS 2 Medkit Gateway running")
-        self.assertEqual(data["version"], "0.1.0")
-        print("✓ Root endpoint test passed")
+        data = self._get_json('/')
+        self.assertIn('status', data)
+        self.assertIn('version', data)
+        self.assertEqual(data['status'], 'ROS 2 Medkit Gateway running')
+        self.assertEqual(data['version'], '0.1.0')
+        print('✓ Root endpoint test passed')
 
     def test_02_list_areas(self):
         """
@@ -184,12 +184,12 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
 
         @verifies REQ_INTEROP_003
         """
-        areas = self._get_json("/areas")
+        areas = self._get_json('/areas')
         self.assertIsInstance(areas, list)
         self.assertGreaterEqual(len(areas), 1)
-        area_ids = [area["id"] for area in areas]
-        self.assertIn("root", area_ids)
-        print(f"✓ Areas test passed: {len(areas)} areas discovered")
+        area_ids = [area['id'] for area in areas]
+        self.assertIn('root', area_ids)
+        print(f'✓ Areas test passed: {len(areas)} areas discovered')
 
     def test_03_list_components(self):
         """
@@ -197,38 +197,38 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
 
         @verifies REQ_INTEROP_003
         """
-        components = self._get_json("/components")
+        components = self._get_json('/components')
         self.assertIsInstance(components, list)
         # Should have at least 7 demo nodes + gateway node
         self.assertGreaterEqual(len(components), 7)
 
         # Verify response structure - all components should have required fields
         for component in components:
-            self.assertIn("id", component)
-            self.assertIn("namespace", component)
-            self.assertIn("fqn", component)
-            self.assertIn("type", component)
-            self.assertIn("area", component)
-            self.assertEqual(component["type"], "Component")
+            self.assertIn('id', component)
+            self.assertIn('namespace', component)
+            self.assertIn('fqn', component)
+            self.assertIn('type', component)
+            self.assertIn('area', component)
+            self.assertEqual(component['type'], 'Component')
 
         # Verify some expected component IDs are present
-        component_ids = [comp["id"] for comp in components]
-        self.assertIn("temp_sensor", component_ids)
-        self.assertIn("rpm_sensor", component_ids)
-        self.assertIn("pressure_sensor", component_ids)
+        component_ids = [comp['id'] for comp in components]
+        self.assertIn('temp_sensor', component_ids)
+        self.assertIn('rpm_sensor', component_ids)
+        self.assertIn('pressure_sensor', component_ids)
 
-        print(f"✓ Components test passed: {len(components)} components discovered")
+        print(f'✓ Components test passed: {len(components)} components discovered')
 
     def test_04_automotive_areas_discovery(self):
         """Test that automotive areas are properly discovered."""
-        areas = self._get_json("/areas")
-        area_ids = [area["id"] for area in areas]
+        areas = self._get_json('/areas')
+        area_ids = [area['id'] for area in areas]
 
-        expected_areas = ["powertrain", "chassis", "body"]
+        expected_areas = ['powertrain', 'chassis', 'body']
         for expected in expected_areas:
             self.assertIn(expected, area_ids)
 
-        print(f"✓ All automotive areas discovered: {area_ids}")
+        print(f'✓ All automotive areas discovered: {area_ids}')
 
     def test_05_area_components_success(self):
         """
@@ -237,36 +237,36 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
         @verifies REQ_INTEROP_006
         """
         # Test powertrain area
-        components = self._get_json("/areas/powertrain/components")
+        components = self._get_json('/areas/powertrain/components')
         self.assertIsInstance(components, list)
         self.assertGreater(len(components), 0)
 
         # All components should belong to powertrain area
         for component in components:
-            self.assertEqual(component["area"], "powertrain")
-            self.assertIn("id", component)
-            self.assertIn("namespace", component)
+            self.assertEqual(component['area'], 'powertrain')
+            self.assertIn('id', component)
+            self.assertIn('namespace', component)
 
         # Verify expected powertrain components
-        component_ids = [comp["id"] for comp in components]
-        self.assertIn("temp_sensor", component_ids)
-        self.assertIn("rpm_sensor", component_ids)
+        component_ids = [comp['id'] for comp in components]
+        self.assertIn('temp_sensor', component_ids)
+        self.assertIn('rpm_sensor', component_ids)
 
         print(
-            f"✓ Area components test passed: {len(components)} components in powertrain"
+            f'✓ Area components test passed: {len(components)} components in powertrain'
         )
 
     def test_06_area_components_nonexistent_error(self):
         """Test GET /areas/{area_id}/components returns 404 for nonexistent area."""
         response = requests.get(
-            f"{self.BASE_URL}/areas/nonexistent/components", timeout=5
+            f'{self.BASE_URL}/areas/nonexistent/components', timeout=5
         )
         self.assertEqual(response.status_code, 404)
 
         data = response.json()
-        self.assertIn("error", data)
-        self.assertEqual(data["error"], "Area not found")
-        self.assertIn("area_id", data)
-        self.assertEqual(data["area_id"], "nonexistent")
+        self.assertIn('error', data)
+        self.assertEqual(data['error'], 'Area not found')
+        self.assertIn('area_id', data)
+        self.assertEqual(data['area_id'], 'nonexistent')
 
-        print("✓ Nonexistent area error test passed")
+        print('✓ Nonexistent area error test passed')
