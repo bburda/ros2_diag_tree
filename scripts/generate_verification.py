@@ -1,6 +1,8 @@
+"""Generate verification.rst from test files with @verifies tags."""
+
 import os
-import re
 from pathlib import Path
+import re
 
 # Determine workspace root relative to this script
 # Script is in <workspace>/scripts/generate_verification.py
@@ -11,6 +13,7 @@ OUTPUT_FILE = WORKSPACE_DIR / "docs/requirements/verification.rst"
 
 
 def parse_cpp_file(file_path):
+    """Parse C++ test file for @verifies tags."""
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
 
@@ -21,7 +24,6 @@ def parse_cpp_file(file_path):
     tests = []
 
     for match in test_pattern.finditer(content):
-        suite_name = match.group(1)
         test_name = match.group(2)
         start_index = match.end()
 
@@ -30,7 +32,7 @@ def parse_cpp_file(file_path):
         lines = search_window.split("\n")
 
         # Auto-generate ID and Title
-        test_id = f"TEST_{test_name}"
+        test_id = "TEST_" + test_name
         test_title = test_name
 
         verifies_reqs = []
@@ -51,7 +53,7 @@ def parse_cpp_file(file_path):
             comment_content = line[2:].strip()
 
             # Parse tags
-            # Support "@verifies REQ_..." (list) or "Links to: REQ_..."
+            # Support '@verifies REQ_...' (list) or 'Links to: REQ_...'
             tag_match = re.match(
                 r"(?:@verifies|Links to:|Verifies:)\s*(.*)", comment_content
             )
@@ -81,6 +83,7 @@ def parse_cpp_file(file_path):
 
 
 def parse_py_file(file_path):
+    """Parse Python test file for @verifies tags."""
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
 
@@ -99,7 +102,7 @@ def parse_py_file(file_path):
         lines = search_window.split("\n")
 
         # Auto-generate ID and Title
-        test_id = f"TEST_{test_name}"
+        test_id = "TEST_" + test_name
         test_title = test_name
 
         verifies_reqs = []
@@ -108,7 +111,7 @@ def parse_py_file(file_path):
         in_docstring = False
         docstring_lines = []
 
-        for i, line in enumerate(lines):
+        for line in lines:
             stripped = line.strip()
             if not stripped:
                 continue
@@ -189,6 +192,7 @@ def parse_py_file(file_path):
 
 
 def generate_rst(tests):
+    """Generate RST content from parsed tests."""
     lines = [
         "Verification",
         "============",
@@ -199,18 +203,19 @@ def generate_rst(tests):
     ]
 
     for test in tests:
-        lines.append(f".. test:: {test['title']}")
-        lines.append(f"   :id: {test['id']}")
-        lines.append(f"   :status: verified")
+        lines.append(".. test:: " + test["title"])
+        lines.append("   :id: " + test["id"])
+        lines.append("   :status: verified")
         if test["verifies"]:
-            lines.append(f"   :verifies: {', '.join(test['verifies'])}")
+            lines.append("   :verifies: " + ", ".join(test["verifies"]))
         lines.append("")
         if test["description"]:
-            lines.append(f"   {test['description']}")
+            lines.append("   " + test["description"])
             lines.append("")
 
         lines.append(
-            f"   **Implementation:** ``{test['file']}`` (Test: ``{test['test_func']}``)"
+            "   **Implementation:** ``" + test["file"] + "`` "
+            "(Test: ``" + test["test_func"] + "``)"
         )
         lines.append("")
         lines.append("")
@@ -225,9 +230,10 @@ def generate_rst(tests):
 
 
 def main():
+    """Scan tests and generate verification.rst."""
     all_tests = []
     if not SRC_DIR.exists():
-        print(f"Source directory {SRC_DIR} does not exist.")
+        print("Source directory " + str(SRC_DIR) + " does not exist.")
         return
 
     for root, dirs, files in os.walk(SRC_DIR):
@@ -246,7 +252,7 @@ def main():
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         f.write(rst_content)
 
-    print(f"Generated {OUTPUT_FILE} with {len(all_tests)} tests.")
+    print("Generated " + str(OUTPUT_FILE) + " with " + str(len(all_tests)) + " tests.")
 
 
 if __name__ == "__main__":
