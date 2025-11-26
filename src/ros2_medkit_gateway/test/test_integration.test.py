@@ -386,3 +386,113 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
         self.assertIsInstance(data, list, 'Response should be an array even when empty')
 
         print(f'✓ Component with no topics test passed: {len(data)} topics')
+
+    def test_13_invalid_component_id_special_chars(self):
+        """Test GET /components/{component_id}/data rejects special characters."""
+        # Test various invalid characters
+        invalid_ids = [
+            'component;drop',  # SQL injection attempt
+            'component<script>',  # XSS attempt
+            'component"test',  # Quote
+            'component`test',  # Backtick
+            'component$test',  # Dollar sign
+            'component|test',  # Pipe
+            'component&test',  # Ampersand
+        ]
+
+        for invalid_id in invalid_ids:
+            response = requests.get(
+                f'{self.BASE_URL}/components/{invalid_id}/data',
+                timeout=5
+            )
+            self.assertEqual(
+                response.status_code,
+                400,
+                f'Expected 400 for component_id: {invalid_id}'
+            )
+
+            data = response.json()
+            self.assertIn('error', data)
+            self.assertEqual(data['error'], 'Invalid component ID')
+            self.assertIn('details', data)
+
+        print('✓ Invalid component ID special characters test passed')
+
+    def test_14_invalid_area_id_special_chars(self):
+        """Test GET /areas/{area_id}/components rejects special characters."""
+        # Test various invalid characters
+        # Note: Forward slash is handled by URL routing, not validation
+        invalid_ids = [
+            'area;drop',  # SQL injection attempt
+            'area<script>',  # XSS attempt
+            'area"test',  # Quote
+            'area|test',  # Pipe
+        ]
+
+        for invalid_id in invalid_ids:
+            response = requests.get(
+                f'{self.BASE_URL}/areas/{invalid_id}/components',
+                timeout=5
+            )
+            self.assertEqual(
+                response.status_code,
+                400,
+                f'Expected 400 for area_id: {invalid_id}'
+            )
+
+            data = response.json()
+            self.assertIn('error', data)
+            self.assertEqual(data['error'], 'Invalid area ID')
+            self.assertIn('details', data)
+
+        print('✓ Invalid area ID special characters test passed')
+
+    def test_15_valid_ids_with_underscores(self):
+        """Test that valid IDs with underscores are accepted (ROS 2 naming)."""
+        # While these IDs don't exist in the test environment,
+        # they should pass validation and return 404 (not 400)
+        valid_ids = [
+            'component_name',  # Underscore
+            'component_name_123',  # Underscore and numbers
+            'ComponentName',  # CamelCase
+            'component123',  # Alphanumeric
+        ]
+
+        for valid_id in valid_ids:
+            response = requests.get(
+                f'{self.BASE_URL}/components/{valid_id}/data',
+                timeout=5
+            )
+            # Should return 404 (not found) not 400 (invalid)
+            self.assertEqual(
+                response.status_code,
+                404,
+                f'Expected 404 for valid but nonexistent ID: {valid_id}'
+            )
+
+        print('✓ Valid IDs with underscores test passed')
+
+    def test_16_invalid_ids_with_hyphens(self):
+        """Test that IDs with hyphens are rejected (not allowed in ROS 2 names)."""
+        invalid_ids = [
+            'component-name',
+            'component-name-123',
+            'my-component',
+        ]
+
+        for invalid_id in invalid_ids:
+            response = requests.get(
+                f'{self.BASE_URL}/components/{invalid_id}/data',
+                timeout=5
+            )
+            self.assertEqual(
+                response.status_code,
+                400,
+                f'Expected 400 for hyphenated ID: {invalid_id}'
+            )
+
+            data = response.json()
+            self.assertIn('error', data)
+            self.assertEqual(data['error'], 'Invalid component ID')
+
+        print('✓ Invalid IDs with hyphens test passed')

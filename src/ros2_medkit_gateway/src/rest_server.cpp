@@ -13,8 +13,10 @@
 // limitations under the License.
 
 #include "ros2_medkit_gateway/rest_server.hpp"
-#include "ros2_medkit_gateway/gateway_node.hpp"
+#include <iomanip>
+#include <sstream>
 #include <rclcpp/rclcpp.hpp>
+#include "ros2_medkit_gateway/gateway_node.hpp"
 
 using json = nlohmann::json;
 
@@ -79,6 +81,53 @@ void RESTServer::stop() {
         RCLCPP_INFO(rclcpp::get_logger("rest_server"), "Stopping REST server...");
         server_->stop();
     }
+}
+
+bool RESTServer::validate_entity_id(
+    const std::string& entity_id,
+    std::string& error_message
+) const {
+    // Check for empty string
+    if (entity_id.empty()) {
+        error_message = "Entity ID cannot be empty";
+        return false;
+    }
+
+    // Check length (reasonable limit to prevent abuse)
+    if (entity_id.length() > 256) {
+        error_message = "Entity ID too long (max 256 characters)";
+        return false;
+    }
+
+    // Validate characters according to ROS 2 naming conventions
+    // Allow: alphanumeric (a-z, A-Z, 0-9), underscore (_)
+    // Reject: hyphen (not allowed in ROS 2 names), forward slash (conflicts with URL routing),
+    //         special characters, escape sequences
+    for (char c : entity_id) {
+        bool is_alphanumeric = (c >= 'a' && c <= 'z') ||
+                              (c >= 'A' && c <= 'Z') ||
+                              (c >= '0' && c <= '9');
+        bool is_allowed_special = (c == '_');
+
+        if (!is_alphanumeric && !is_allowed_special) {
+            // For non-printable characters, show the character code
+            std::string char_repr;
+            if (c < 32 || c > 126) {
+                std::ostringstream oss;
+                oss << "0x" << std::hex << std::setfill('0') << std::setw(2)
+                    << static_cast<unsigned int>(static_cast<unsigned char>(c));
+                char_repr = oss.str();
+            } else {
+                char_repr = std::string(1, c);
+            }
+            error_message = "Entity ID contains invalid character: '" +
+                          char_repr +
+                          "'. Only alphanumeric and underscore are allowed";
+            return false;
+        }
+    }
+
+    return true;
 }
 
 void RESTServer::handle_health(const httplib::Request& req, httplib::Response& res) {
@@ -183,6 +232,22 @@ void RESTServer::handle_area_components(const httplib::Request& req, httplib::Re
         }
 
         std::string area_id = req.matches[1];
+
+        // Validate area_id
+        std::string validation_error;
+        if (!validate_entity_id(area_id, validation_error)) {
+            res.status = 400;
+            res.set_content(
+                json{
+                    {"error", "Invalid area ID"},
+                    {"details", validation_error},
+                    {"area_id", area_id}
+                }.dump(2),
+                "application/json"
+            );
+            return;
+        }
+
         const auto cache = node_->get_entity_cache();
 
         // Check if area exists
@@ -243,9 +308,22 @@ void RESTServer::handle_component_data(const httplib::Request& req, httplib::Res
         }
 
         component_id = req.matches[1];
-        // TODO(mfaferek93): Add input validation for component_id
-        // Should validate against ROS 2 naming conventions (alphanumeric, /, _)
-        // and URL-decode if necessary
+
+        // Validate component_id
+        std::string validation_error;
+        if (!validate_entity_id(component_id, validation_error)) {
+            res.status = 400;
+            res.set_content(
+                json{
+                    {"error", "Invalid component ID"},
+                    {"details", validation_error},
+                    {"component_id", component_id}
+                }.dump(2),
+                "application/json"
+            );
+            return;
+        }
+
         const auto cache = node_->get_entity_cache();
 
         // Find component in cache
