@@ -13,11 +13,14 @@
 // limitations under the License.
 
 #include "ros2_medkit_gateway/data_access_manager.hpp"
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <future>
 #include <sstream>
+
+#include "ros2_medkit_gateway/exceptions.hpp"
 
 namespace ros2_medkit_gateway {
 
@@ -37,7 +40,7 @@ DataAccessManager::DataAccessManager(rclcpp::Node* node)
 
     if (!cli_wrapper_->is_command_available("ros2")) {
         RCLCPP_ERROR(node_->get_logger(), "ROS 2 CLI not found!");
-        throw std::runtime_error("ros2 command not available");
+        throw CommandNotAvailableException("ros2");
     }
 
     RCLCPP_INFO(node_->get_logger(),
@@ -65,14 +68,14 @@ json DataAccessManager::get_topic_sample(
         // Check for warning messages in raw output (before parsing)
         // ROS 2 CLI prints warnings as text, not structured YAML
         if (output.find("WARNING") != std::string::npos) {
-            throw std::runtime_error("Topic not available or timeout");
+            throw TopicNotAvailableException(topic_name);
         }
 
         json data = output_parser_->parse_yaml(output);
 
         // Check for empty/null parsed data
         if (data.is_null()) {
-            throw std::runtime_error("Topic not available or timeout");
+            throw TopicNotAvailableException(topic_name);
         }
 
         json result = {
@@ -84,15 +87,17 @@ json DataAccessManager::get_topic_sample(
         };
 
         return result;
+    } catch (const TopicNotAvailableException&) {
+        // Re-throw TopicNotAvailableException as-is for proper handling upstream
+        throw;
     } catch (const std::exception& e) {
         RCLCPP_ERROR(node_->get_logger(),
                     "Failed to get sample from topic '%s': %s",
                     topic_name.c_str(),
                     e.what());
 
-        throw std::runtime_error(
-            "Failed to get sample from topic '" + topic_name + "': " + std::string(e.what())
-        );
+        // For other errors (CLI failures, parsing errors), wrap as TopicNotAvailableException
+        throw TopicNotAvailableException(topic_name);
     }
 }
 
