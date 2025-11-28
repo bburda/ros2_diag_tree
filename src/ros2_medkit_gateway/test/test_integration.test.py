@@ -220,7 +220,11 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
         print(f'✓ Components test passed: {len(components)} components discovered')
 
     def test_04_automotive_areas_discovery(self):
-        """Test that automotive areas are properly discovered."""
+        """
+        Test that automotive areas are properly discovered.
+
+        @verifies REQ_INTEROP_003
+        """
         areas = self._get_json('/areas')
         area_ids = [area['id'] for area in areas]
 
@@ -257,7 +261,11 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
         )
 
     def test_06_area_components_nonexistent_error(self):
-        """Test GET /areas/{area_id}/components returns 404 for nonexistent area."""
+        """
+        Test GET /areas/{area_id}/components returns 404 for nonexistent area.
+
+        @verifies REQ_INTEROP_006
+        """
         response = requests.get(
             f'{self.BASE_URL}/areas/nonexistent/components', timeout=5
         )
@@ -386,3 +394,129 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
         self.assertIsInstance(data, list, 'Response should be an array even when empty')
 
         print(f'✓ Component with no topics test passed: {len(data)} topics')
+
+    def test_13_invalid_component_id_special_chars(self):
+        """
+        Test GET /components/{component_id}/data rejects special characters.
+
+        @verifies REQ_INTEROP_018
+        """
+        # Test various invalid characters
+        invalid_ids = [
+            'component;drop',  # SQL injection attempt
+            'component<script>',  # XSS attempt
+            'component"test',  # Quote
+            'component`test',  # Backtick
+            'component$test',  # Dollar sign
+            'component|test',  # Pipe
+            'component&test',  # Ampersand
+        ]
+
+        for invalid_id in invalid_ids:
+            response = requests.get(
+                f'{self.BASE_URL}/components/{invalid_id}/data',
+                timeout=5
+            )
+            self.assertEqual(
+                response.status_code,
+                400,
+                f'Expected 400 for component_id: {invalid_id}'
+            )
+
+            data = response.json()
+            self.assertIn('error', data)
+            self.assertEqual(data['error'], 'Invalid component ID')
+            self.assertIn('details', data)
+
+        print('✓ Invalid component ID special characters test passed')
+
+    def test_14_invalid_area_id_special_chars(self):
+        """
+        Test GET /areas/{area_id}/components rejects special characters.
+
+        @verifies REQ_INTEROP_006
+        """
+        # Test various invalid characters
+        # Note: Forward slash is handled by URL routing, not validation
+        invalid_ids = [
+            'area;drop',  # SQL injection attempt
+            'area<script>',  # XSS attempt
+            'area"test',  # Quote
+            'area|test',  # Pipe
+        ]
+
+        for invalid_id in invalid_ids:
+            response = requests.get(
+                f'{self.BASE_URL}/areas/{invalid_id}/components',
+                timeout=5
+            )
+            self.assertEqual(
+                response.status_code,
+                400,
+                f'Expected 400 for area_id: {invalid_id}'
+            )
+
+            data = response.json()
+            self.assertIn('error', data)
+            self.assertEqual(data['error'], 'Invalid area ID')
+            self.assertIn('details', data)
+
+        print('✓ Invalid area ID special characters test passed')
+
+    def test_15_valid_ids_with_underscores(self):
+        """
+        Test that valid IDs with underscores are accepted (ROS 2 naming).
+
+        @verifies REQ_INTEROP_018
+        """
+        # While these IDs don't exist in the test environment,
+        # they should pass validation and return 404 (not 400)
+        valid_ids = [
+            'component_name',  # Underscore
+            'component_name_123',  # Underscore and numbers
+            'ComponentName',  # CamelCase
+            'component123',  # Alphanumeric
+        ]
+
+        for valid_id in valid_ids:
+            response = requests.get(
+                f'{self.BASE_URL}/components/{valid_id}/data',
+                timeout=5
+            )
+            # Should return 404 (not found) not 400 (invalid)
+            self.assertEqual(
+                response.status_code,
+                404,
+                f'Expected 404 for valid but nonexistent ID: {valid_id}'
+            )
+
+        print('✓ Valid IDs with underscores test passed')
+
+    def test_16_invalid_ids_with_hyphens(self):
+        """
+        Test that IDs with hyphens are rejected (not allowed in ROS 2 names).
+
+        @verifies REQ_INTEROP_018
+        """
+        invalid_ids = [
+            'component-name',
+            'component-name-123',
+            'my-component',
+        ]
+
+        for invalid_id in invalid_ids:
+            response = requests.get(
+                f'{self.BASE_URL}/components/{invalid_id}/data',
+                timeout=5
+            )
+            self.assertEqual(
+                response.status_code,
+                400,
+                f'Expected 400 for hyphenated ID: {invalid_id}'
+            )
+
+            data = response.json()
+            self.assertIn('error', data)
+            self.assertEqual(data['error'], 'Invalid component ID')
+
+        print('✓ Invalid IDs with hyphens test passed')
