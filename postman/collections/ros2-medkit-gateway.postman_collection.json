@@ -88,7 +88,7 @@
       "name": "Component Data",
       "item": [
         {
-          "name": "GET Component Data",
+          "name": "GET Component Data (All Topics)",
           "request": {
             "method": "GET",
             "header": [],
@@ -104,6 +104,69 @@
               ]
             },
             "description": "Read all topic data from a specific component. Returns array of topic samples with metadata (topic, timestamp, data). Change 'temp_sensor' to other component IDs like 'rpm_sensor', 'pressure_sensor', etc."
+          },
+          "response": []
+        },
+        {
+          "name": "GET Component Topic Data (Temperature)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/components/temp_sensor/data/temperature",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "components",
+                "temp_sensor",
+                "data",
+                "temperature"
+              ]
+            },
+            "description": "Read specific topic data from a component. Returns single topic sample with topic path, timestamp, and data. The topic_name is relative to the component's namespace."
+          },
+          "response": []
+        },
+        {
+          "name": "GET Component Topic Data (RPM)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/components/rpm_sensor/data/rpm",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "components",
+                "rpm_sensor",
+                "data",
+                "rpm"
+              ]
+            },
+            "description": "Read RPM topic data from the rpm_sensor component."
+          },
+          "response": []
+        },
+        {
+          "name": "GET Component Topic Data (Pressure)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/components/pressure_sensor/data/pressure",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "components",
+                "pressure_sensor",
+                "data",
+                "pressure"
+              ]
+            },
+            "description": "Read brake pressure topic data from the pressure_sensor component."
           },
           "response": []
         }

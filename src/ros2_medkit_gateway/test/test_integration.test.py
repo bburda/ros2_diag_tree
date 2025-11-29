@@ -520,3 +520,204 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
             self.assertEqual(data['error'], 'Invalid component ID')
 
         print('✓ Invalid IDs with hyphens test passed')
+
+    def test_17_component_topic_temperature(self):
+        """
+        Test GET /components/{component_id}/data/{topic_name} for temperature topic.
+
+        @verifies REQ_INTEROP_019
+        """
+        response = requests.get(
+            f'{self.BASE_URL}/components/temp_sensor/data/temperature',
+            timeout=10
+        )
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+        self.assertIn('topic', data)
+        self.assertIn('timestamp', data)
+        self.assertIn('data', data)
+        self.assertEqual(data['topic'], '/powertrain/engine/temperature')
+        self.assertIsInstance(data['timestamp'], int)
+        self.assertIsInstance(data['data'], dict)
+
+        print(f'✓ Component topic temperature test passed: {data["topic"]}')
+
+    def test_18_component_topic_rpm(self):
+        """
+        Test GET /components/{component_id}/data/{topic_name} for RPM topic.
+
+        @verifies REQ_INTEROP_019
+        """
+        response = requests.get(
+            f'{self.BASE_URL}/components/rpm_sensor/data/rpm',
+            timeout=10
+        )
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+        self.assertIn('topic', data)
+        self.assertIn('timestamp', data)
+        self.assertIn('data', data)
+        self.assertEqual(data['topic'], '/powertrain/engine/rpm')
+
+        print(f'✓ Component topic RPM test passed: {data["topic"]}')
+
+    def test_19_component_topic_pressure(self):
+        """
+        Test GET /components/{component_id}/data/{topic_name} for pressure topic.
+
+        @verifies REQ_INTEROP_019
+        """
+        response = requests.get(
+            f'{self.BASE_URL}/components/pressure_sensor/data/pressure',
+            timeout=10
+        )
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+        self.assertIn('topic', data)
+        self.assertIn('timestamp', data)
+        self.assertIn('data', data)
+        self.assertEqual(data['topic'], '/chassis/brakes/pressure')
+
+        print(f'✓ Component topic pressure test passed: {data["topic"]}')
+
+    def test_20_component_topic_data_structure(self):
+        """
+        Test GET /components/{component_id}/data/{topic_name} response structure.
+
+        @verifies REQ_INTEROP_019
+        """
+        response = requests.get(
+            f'{self.BASE_URL}/components/temp_sensor/data/temperature',
+            timeout=10
+        )
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+        # Verify all required fields
+        self.assertIn('topic', data, "Response should have 'topic' field")
+        self.assertIn('timestamp', data, "Response should have 'timestamp' field")
+        self.assertIn('data', data, "Response should have 'data' field")
+
+        # Verify field types
+        self.assertIsInstance(data['topic'], str, "'topic' should be a string")
+        self.assertIsInstance(
+            data['timestamp'],
+            int,
+            "'timestamp' should be an integer (nanoseconds)"
+        )
+        self.assertIsInstance(data['data'], dict, "'data' should be an object")
+
+        # Verify topic path format
+        self.assertTrue(
+            data['topic'].startswith('/'),
+            "Topic should be an absolute path starting with '/'"
+        )
+
+        print('✓ Component topic data structure test passed')
+
+    def test_21_component_nonexistent_topic_error(self):
+        """
+        Test GET /components/{component_id}/data/{topic_name} returns 404 for nonexistent topic.
+
+        @verifies REQ_INTEROP_019
+        """
+        response = requests.get(
+            f'{self.BASE_URL}/components/temp_sensor/data/nonexistent_topic',
+            timeout=10
+        )
+        self.assertEqual(response.status_code, 404)
+
+        data = response.json()
+        self.assertIn('error', data)
+        self.assertEqual(data['error'], 'Topic not found or not publishing')
+        self.assertIn('component_id', data)
+        self.assertEqual(data['component_id'], 'temp_sensor')
+        self.assertIn('topic_name', data)
+        self.assertEqual(data['topic_name'], 'nonexistent_topic')
+
+        print('✓ Nonexistent topic error test passed')
+
+    def test_22_component_topic_nonexistent_component_error(self):
+        """
+        Test GET endpoint returns 404 for nonexistent component.
+
+        @verifies REQ_INTEROP_019
+        """
+        response = requests.get(
+            f'{self.BASE_URL}/components/nonexistent_component/data/temperature',
+            timeout=5
+        )
+        self.assertEqual(response.status_code, 404)
+
+        data = response.json()
+        self.assertIn('error', data)
+        self.assertEqual(data['error'], 'Component not found')
+        self.assertIn('component_id', data)
+        self.assertEqual(data['component_id'], 'nonexistent_component')
+
+        print('✓ Component topic nonexistent component error test passed')
+
+    def test_23_component_topic_invalid_topic_name(self):
+        """
+        Test GET /components/{component_id}/data/{topic_name} rejects invalid topic names.
+
+        @verifies REQ_INTEROP_019
+        """
+        invalid_topic_names = [
+            'topic;drop',  # SQL injection attempt
+            'topic<script>',  # XSS attempt
+            'topic"test',  # Quote
+            'topic|test',  # Pipe
+            'topic-name',  # Hyphen (not allowed in ROS 2)
+        ]
+
+        for invalid_topic in invalid_topic_names:
+            response = requests.get(
+                f'{self.BASE_URL}/components/temp_sensor/data/{invalid_topic}',
+                timeout=5
+            )
+            self.assertEqual(
+                response.status_code,
+                400,
+                f'Expected 400 for topic_name: {invalid_topic}'
+            )
+
+            data = response.json()
+            self.assertIn('error', data)
+            self.assertEqual(data['error'], 'Invalid topic name')
+            self.assertIn('details', data)
+
+        print('✓ Invalid topic name test passed')
+
+    def test_24_component_topic_valid_underscores(self):
+        """
+        Test that valid topic names with underscores pass validation.
+
+        @verifies REQ_INTEROP_019
+        """
+        # These topic names are valid but may not exist
+        # They should return 404 (not found) not 400 (invalid)
+        valid_topic_names = [
+            'topic_name',
+            'topic_name_123',
+            'TopicName',
+            'topic123',
+        ]
+
+        for valid_topic in valid_topic_names:
+            response = requests.get(
+                f'{self.BASE_URL}/components/temp_sensor/data/{valid_topic}',
+                timeout=10
+            )
+            # Should return 404 (topic not found) not 400 (invalid name)
+            self.assertIn(
+                response.status_code,
+                [200, 404],
+                f'Expected 200 or 404 for valid topic name: {valid_topic}, '
+                f'got {response.status_code}'
+            )
+
+        print('✓ Valid topic names with underscores test passed')

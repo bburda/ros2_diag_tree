@@ -13,9 +13,13 @@
 // limitations under the License.
 
 #include "ros2_medkit_gateway/rest_server.hpp"
+
 #include <iomanip>
 #include <sstream>
+
 #include <rclcpp/rclcpp.hpp>
+
+#include "ros2_medkit_gateway/exceptions.hpp"
 #include "ros2_medkit_gateway/gateway_node.hpp"
 
 using json = nlohmann::json;
@@ -60,8 +64,13 @@ void RESTServer::setup_routes() {
         handle_area_components(req, res);
     });
 
-    // Component data
-    server_->Get(R"(/components/([^/]+)/data)", [this](const httplib::Request& req, httplib::Response& res) {
+    // Component topic data (specific topic) - register before general route
+    server_->Get(R"(/components/([^/]+)/data/([^/]+)$)", [this](const httplib::Request& req, httplib::Response& res) {
+        handle_component_topic_data(req, res);
+    });
+
+    // Component data (all topics)
+    server_->Get(R"(/components/([^/]+)/data$)", [this](const httplib::Request& req, httplib::Response& res) {
         handle_component_data(req, res);
     });
 }
@@ -330,7 +339,7 @@ void RESTServer::handle_component_data(const httplib::Request& req, httplib::Res
 
         for (const auto& component : cache.components) {
             if (component.id == component_id) {
-                component_namespace = component.fqn;
+                component_namespace = component.namespace_path;
                 component_found = true;
                 break;
             }
@@ -349,6 +358,7 @@ void RESTServer::handle_component_data(const httplib::Request& req, httplib::Res
         }
 
         // Get component data from DataAccessManager
+        // Use namespace_path to find topics (topics are relative to namespace, not FQN)
         auto data_access_mgr = node_->get_data_access_manager();
         json component_data = data_access_mgr->get_component_data(component_namespace);
 
@@ -367,6 +377,128 @@ void RESTServer::handle_component_data(const httplib::Request& req, httplib::Res
             rclcpp::get_logger("rest_server"),
             "Error in handle_component_data for component '%s': %s",
             component_id.c_str(),
+            e.what()
+        );
+    }
+}
+
+void RESTServer::handle_component_topic_data(const httplib::Request& req, httplib::Response& res) {
+    std::string component_id;
+    std::string topic_name;
+    try {
+        // Extract component_id and topic_name from URL path
+        if (req.matches.size() < 3) {
+            res.status = StatusCode::BadRequest_400;
+            res.set_content(
+                json{{"error", "Invalid request"}}.dump(2),
+                "application/json"
+            );
+            return;
+        }
+
+        component_id = req.matches[1];
+        topic_name = req.matches[2];
+
+        // Validate component_id
+        auto component_validation = validate_entity_id(component_id);
+        if (!component_validation) {
+            res.status = StatusCode::BadRequest_400;
+            res.set_content(
+                json{
+                    {"error", "Invalid component ID"},
+                    {"details", component_validation.error()},
+                    {"component_id", component_id}
+                }.dump(2),
+                "application/json"
+            );
+            return;
+        }
+
+        // Validate topic_name
+        auto topic_validation = validate_entity_id(topic_name);
+        if (!topic_validation) {
+            res.status = StatusCode::BadRequest_400;
+            res.set_content(
+                json{
+                    {"error", "Invalid topic name"},
+                    {"details", topic_validation.error()},
+                    {"topic_name", topic_name}
+                }.dump(2),
+                "application/json"
+            );
+            return;
+        }
+
+        const auto cache = node_->get_entity_cache();
+
+        // Find component in cache
+        std::string component_namespace;
+        bool component_found = false;
+
+        for (const auto& component : cache.components) {
+            if (component.id == component_id) {
+                component_namespace = component.namespace_path;
+                component_found = true;
+                break;
+            }
+        }
+
+        if (!component_found) {
+            res.status = StatusCode::NotFound_404;
+            res.set_content(
+                json{
+                    {"error", "Component not found"},
+                    {"component_id", component_id}
+                }.dump(2),
+                "application/json"
+            );
+            return;
+        }
+
+        // Construct full topic path: {namespace_path}/{topic_name}
+        // Handle root namespace case to avoid double slash (//topic_name)
+        std::string full_topic_path = (component_namespace == "/")
+            ? "/" + topic_name
+            : component_namespace + "/" + topic_name;
+
+        // Get topic data from DataAccessManager
+        auto data_access_mgr = node_->get_data_access_manager();
+        json topic_data = data_access_mgr->get_topic_sample(full_topic_path);
+
+        res.set_content(topic_data.dump(2), "application/json");
+    } catch (const TopicNotAvailableException& e) {
+        res.status = StatusCode::NotFound_404;
+        res.set_content(
+            json{
+                {"error", "Topic not found or not publishing"},
+                {"component_id", component_id},
+                {"topic_name", topic_name}
+            }.dump(2),
+            "application/json"
+        );
+        RCLCPP_ERROR(
+            rclcpp::get_logger("rest_server"),
+            "Topic not available for component '%s', topic '%s': %s",
+            component_id.c_str(),
+            topic_name.c_str(),
+            e.what()
+        );
+    } catch (const std::exception& e) {
+        res.status = StatusCode::InternalServerError_500;
+        res.set_content(
+            json{
+                {"error", "Failed to retrieve topic data"},
+                {"details", e.what()},
+                {"component_id", component_id},
+                {"topic_name", topic_name}
+            }.dump(2),
+            "application/json"
+        );
+        RCLCPP_ERROR(
+            rclcpp::get_logger("rest_server"),
+            "Error in handle_component_topic_data for component '%s', topic '%s': %s",
+            component_id.c_str(),
+            topic_name.c_str(),
             e.what()
         );
     }

@@ -25,6 +25,7 @@ The ROS 2 Medkit Gateway exposes ROS 2 system information and data through a RES
 ### Component Data Endpoints
 
 - `GET /components/{component_id}/data` - Read all topic data from a component
+- `GET /components/{component_id}/data/{topic_name}` - Read specific topic data from a component
 
 ### API Reference
 
@@ -197,11 +198,91 @@ curl http://localhost:8080/components/nonexistent/data
 - Data logging - Periodic sampling of component data
 
 **Performance Considerations:**
-- Topic sampling is currently **sequential** (one topic at a time)
-- Response time scales linearly: `(number of topics) × (timeout per topic)`
-- Example: A component with 10 topics could take up to 30 seconds (10 × 3s)
-- For components with many topics, consider querying specific topics individually
-- **Future improvement**: Parallel topic sampling will be implemented to reduce latency
+- Topic sampling uses **parallel execution** with configurable concurrency
+- Default: up to 10 topics sampled in parallel (configurable via `max_parallel_topic_samples`)
+- Response time scales with batch count: `ceil(topics / batch_size) × timeout`
+- 3-second timeout per topic to accommodate slow-publishing topics
+
+#### GET /components/{component_id}/data/{topic_name}
+
+Read data from a specific topic within a component.
+
+**Example:**
+```bash
+curl http://localhost:8080/components/temp_sensor/data/temperature
+```
+
+**Response (200 OK):**
+```json
+{
+  "topic": "/powertrain/engine/temperature",
+  "timestamp": 1732377600000000000,
+  "data": {
+    "temperature": 85.5,
+    "variance": 0.0
+  }
+}
+```
+
+**Example (Error - Topic Not Found):**
+```bash
+curl http://localhost:8080/components/temp_sensor/data/nonexistent
+```
+
+**Response (404 Not Found):**
+```json
+{
+  "error": "Topic not found or not publishing",
+  "component_id": "temp_sensor",
+  "topic_name": "nonexistent"
+}
+```
+
+**Example (Error - Component Not Found):**
+```bash
+curl http://localhost:8080/components/nonexistent/data/temperature
+```
+
+**Response (404 Not Found):**
+```json
+{
+  "error": "Component not found",
+  "component_id": "nonexistent"
+}
+```
+
+**Example (Error - Invalid Topic Name):**
+```bash
+curl http://localhost:8080/components/temp_sensor/data/invalid-name
+```
+
+**Response (400 Bad Request):**
+```json
+{
+  "error": "Invalid topic name",
+  "details": "Entity ID contains invalid character: '-'. Only alphanumeric and underscore are allowed",
+  "topic_name": "invalid-name"
+}
+```
+
+**URL Parameters:**
+- `component_id` - Component identifier (e.g., `temp_sensor`, `rpm_sensor`)
+- `topic_name` - Topic name within the component (e.g., `temperature`, `rpm`)
+
+**Response Fields:**
+- `topic` - Full topic path (e.g., `/powertrain/engine/temperature`)
+- `timestamp` - Unix timestamp (nanoseconds since epoch) when data was sampled
+- `data` - Topic message data as JSON object
+
+**Validation:**
+- Both `component_id` and `topic_name` follow ROS 2 naming conventions
+- Allowed characters: alphanumeric (a-z, A-Z, 0-9), underscore (_)
+- Hyphens, special characters, and escape sequences are rejected
+
+**Use Cases:**
+- Read specific sensor value (e.g., just temperature, not all engine data)
+- Lower latency than reading all component data
+- Targeted monitoring of specific metrics
 
 ## Quick Start
 
