@@ -167,16 +167,47 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
 
     def test_01_root_endpoint(self):
         """
-        Test GET / returns gateway status and version.
+        Test GET / returns server capabilities and entry points.
 
         @verifies REQ_INTEROP_010
         """
         data = self._get_json('/')
+        self.assertIn('name', data)
+        self.assertIn('version', data)
+        self.assertIn('endpoints', data)
+        self.assertIn('capabilities', data)
+
+        self.assertEqual(data['name'], 'ROS 2 Medkit Gateway')
+        self.assertEqual(data['version'], '0.1.0')
+
+        # Verify endpoints list
+        self.assertIsInstance(data['endpoints'], list)
+        self.assertIn('/health', data['endpoints'])
+        self.assertIn('/version-info', data['endpoints'])
+        self.assertIn('/areas', data['endpoints'])
+        self.assertIn('/components', data['endpoints'])
+
+        # Verify capabilities
+        self.assertIn('discovery', data['capabilities'])
+        self.assertIn('data_access', data['capabilities'])
+        self.assertTrue(data['capabilities']['discovery'])
+        self.assertTrue(data['capabilities']['data_access'])
+        print('✓ Root endpoint test passed')
+
+    def test_01b_version_info_endpoint(self):
+        """
+        Test GET /version-info returns gateway status and version.
+
+        @verifies REQ_INTEROP_001
+        """
+        data = self._get_json('/version-info')
         self.assertIn('status', data)
         self.assertIn('version', data)
+        self.assertIn('timestamp', data)
         self.assertEqual(data['status'], 'ROS 2 Medkit Gateway running')
         self.assertEqual(data['version'], '0.1.0')
-        print('✓ Root endpoint test passed')
+        self.assertIsInstance(data['timestamp'], int)
+        print('✓ Version info endpoint test passed')
 
     def test_02_list_areas(self):
         """
