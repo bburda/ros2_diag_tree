@@ -182,10 +182,11 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
 
         # Verify endpoints list
         self.assertIsInstance(data['endpoints'], list)
-        self.assertIn('/health', data['endpoints'])
-        self.assertIn('/version-info', data['endpoints'])
-        self.assertIn('/areas', data['endpoints'])
-        self.assertIn('/components', data['endpoints'])
+        self.assertIn('GET /health', data['endpoints'])
+        self.assertIn('GET /version-info', data['endpoints'])
+        self.assertIn('GET /areas', data['endpoints'])
+        self.assertIn('GET /components', data['endpoints'])
+        self.assertIn('PUT /components/{component_id}/data/{topic_name}', data['endpoints'])
 
         # Verify capabilities
         self.assertIn('discovery', data['capabilities'])
@@ -752,3 +753,158 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
             )
 
         print('✓ Valid topic names with underscores test passed')
+
+    # ========== PUT /components/{component_id}/data/{topic_name} tests ==========
+
+    def test_25_publish_brake_command(self):
+        """
+        Test PUT /components/{component_id}/data/{topic_name} publishes data.
+
+        @verifies REQ_INTEROP_020
+        """
+        response = requests.put(
+            f'{self.BASE_URL}/components/actuator/data/command',
+            json={
+                'type': 'std_msgs/msg/Float32',
+                'data': {'data': 50.0}
+            },
+            timeout=10
+        )
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+        self.assertIn('topic', data)
+        self.assertIn('type', data)
+        self.assertIn('status', data)
+        self.assertIn('timestamp', data)
+        self.assertIn('component_id', data)
+        self.assertIn('topic_name', data)
+        self.assertEqual(data['status'], 'published')
+        self.assertEqual(data['type'], 'std_msgs/msg/Float32')
+        self.assertEqual(data['component_id'], 'actuator')
+        self.assertEqual(data['topic_name'], 'command')
+
+        print(f'✓ Publish brake command test passed: {data["topic"]}')
+
+    def test_26_publish_validation_missing_type(self):
+        """
+        Test PUT /components/{component_id}/data/{topic_name} returns 400 when type missing.
+
+        @verifies REQ_INTEROP_020
+        """
+        response = requests.put(
+            f'{self.BASE_URL}/components/actuator/data/command',
+            json={
+                'data': {'data': 50.0}
+            },
+            timeout=5
+        )
+        self.assertEqual(response.status_code, 400)
+
+        data = response.json()
+        self.assertIn('error', data)
+        self.assertIn('type', data['error'].lower())
+
+        print('✓ Publish validation missing type test passed')
+
+    def test_27_publish_validation_missing_data(self):
+        """
+        Test PUT /components/{component_id}/data/{topic_name} returns 400 when data missing.
+
+        @verifies REQ_INTEROP_020
+        """
+        response = requests.put(
+            f'{self.BASE_URL}/components/actuator/data/command',
+            json={
+                'type': 'std_msgs/msg/Float32'
+            },
+            timeout=5
+        )
+        self.assertEqual(response.status_code, 400)
+
+        data = response.json()
+        self.assertIn('error', data)
+        self.assertIn('data', data['error'].lower())
+
+        print('✓ Publish validation missing data test passed')
+
+    def test_28_publish_validation_invalid_type_format(self):
+        """
+        Test PUT /components/{component_id}/data/{topic_name} returns 400 for invalid type.
+
+        @verifies REQ_INTEROP_020
+        """
+        # Test various invalid message type formats
+        invalid_types = [
+            'InvalidType',           # No slashes
+            'std_msgs/Float32',      # Missing /msg/
+            'std_msgs/srv/Empty',    # Wrong middle part (srv instead of msg)
+            'a/b/c/d',               # Too many slashes (no /msg/)
+            'a/msg/b/c',             # Too many slashes (3 instead of 2)
+            '/msg/Type',             # Missing package (starts with /)
+            'package/msg/',          # Missing type (ends with /)
+        ]
+
+        for invalid_type in invalid_types:
+            response = requests.put(
+                f'{self.BASE_URL}/components/actuator/data/command',
+                json={
+                    'type': invalid_type,
+                    'data': {'data': 50.0}
+                },
+                timeout=5
+            )
+            self.assertEqual(
+                response.status_code,
+                400,
+                f'Expected 400 for type: {invalid_type}'
+            )
+
+            data = response.json()
+            self.assertIn('error', data)
+            self.assertEqual(data['error'], 'Invalid message type format')
+
+        print('✓ Publish validation invalid type format test passed')
+
+    def test_29_publish_nonexistent_component(self):
+        """
+        Test PUT /components/{component_id}/data/{topic_name} returns 404 for unknown component.
+
+        @verifies REQ_INTEROP_020
+        """
+        response = requests.put(
+            f'{self.BASE_URL}/components/nonexistent_component/data/command',
+            json={
+                'type': 'std_msgs/msg/Float32',
+                'data': {'data': 50.0}
+            },
+            timeout=5
+        )
+        self.assertEqual(response.status_code, 404)
+
+        data = response.json()
+        self.assertIn('error', data)
+        self.assertEqual(data['error'], 'Component not found')
+        self.assertEqual(data['component_id'], 'nonexistent_component')
+
+        print('✓ Publish nonexistent component test passed')
+
+    def test_30_publish_invalid_json_body(self):
+        """
+        Test PUT /components/{component_id}/data/{topic_name} returns 400 for invalid JSON.
+
+        @verifies REQ_INTEROP_020
+        """
+        response = requests.put(
+            f'{self.BASE_URL}/components/actuator/data/command',
+            data='not valid json',
+            headers={'Content-Type': 'application/json'},
+            timeout=5
+        )
+        self.assertEqual(response.status_code, 400)
+
+        data = response.json()
+        self.assertIn('error', data)
+        self.assertIn('json', data['error'].lower())
+
+        print('✓ Publish invalid JSON body test passed')
