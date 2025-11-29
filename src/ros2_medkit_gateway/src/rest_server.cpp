@@ -44,9 +44,14 @@ void RESTServer::setup_routes() {
         handle_health(req, res);
     });
 
-    // Root
+    // Root - server capabilities and entry points (REQ_INTEROP_010)
     server_->Get("/", [this](const httplib::Request& req, httplib::Response& res) {
         handle_root(req, res);
+    });
+
+    // Version info (REQ_INTEROP_001)
+    server_->Get("/version-info", [this](const httplib::Request& req, httplib::Response& res) {
+        handle_version_info(req, res);
     });
 
     // Areas
@@ -162,6 +167,39 @@ void RESTServer::handle_root(const httplib::Request& req, httplib::Response& res
 
     try {
         json response = {
+            {"name", "ROS 2 Medkit Gateway"},
+            {"version", "0.1.0"},
+            {"endpoints", json::array({
+                "/health",
+                "/version-info",
+                "/areas",
+                "/components",
+                "/areas/{area_id}/components",
+                "/components/{component_id}/data",
+                "/components/{component_id}/data/{topic_name}"
+            })},
+            {"capabilities", {
+                {"discovery", true},
+                {"data_access", true}
+            }}
+        };
+
+        res.set_content(response.dump(2), "application/json");
+    } catch (const std::exception& e) {
+        res.status = StatusCode::InternalServerError_500;
+        res.set_content(
+            json{{"error", "Internal server error"}}.dump(),
+            "application/json"
+        );
+        RCLCPP_ERROR(rclcpp::get_logger("rest_server"), "Error in handle_root: %s", e.what());
+    }
+}
+
+void RESTServer::handle_version_info(const httplib::Request& req, httplib::Response& res) {
+    (void)req;  // Unused parameter
+
+    try {
+        json response = {
             {"status", "ROS 2 Medkit Gateway running"},
             {"version", "0.1.0"},
             {"timestamp", std::chrono::system_clock::now().time_since_epoch().count()}
@@ -174,7 +212,11 @@ void RESTServer::handle_root(const httplib::Request& req, httplib::Response& res
             json{{"error", "Internal server error"}}.dump(),
             "application/json"
         );
-        RCLCPP_ERROR(rclcpp::get_logger("rest_server"), "Error in handle_root: %s", e.what());
+        RCLCPP_ERROR(
+            rclcpp::get_logger("rest_server"),
+            "Error in handle_version_info: %s",
+            e.what()
+        );
     }
 }
 

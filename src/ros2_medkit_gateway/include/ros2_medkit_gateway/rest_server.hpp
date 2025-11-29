@@ -40,6 +40,7 @@ private:
     // Route handlers
     void handle_health(const httplib::Request& req, httplib::Response& res);
     void handle_root(const httplib::Request& req, httplib::Response& res);
+    void handle_version_info(const httplib::Request& req, httplib::Response& res);
     void handle_list_areas(const httplib::Request& req, httplib::Response& res);
     void handle_list_components(const httplib::Request& req, httplib::Response& res);
     void handle_area_components(const httplib::Request& req, httplib::Response& res);

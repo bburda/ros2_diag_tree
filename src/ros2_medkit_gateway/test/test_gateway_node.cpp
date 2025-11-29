@@ -92,9 +92,22 @@ private:
           (void)req;
 
           nlohmann::json info_json = {
-              {"service", "ros2_medkit_gateway"},
+              {"name", "ROS 2 Medkit Gateway"},
               {"version", VERSION},
-              {"endpoints", nlohmann::json::array({"/health", "/"})}};
+              {"endpoints", nlohmann::json::array({
+                  "/health",
+                  "/version-info",
+                  "/areas",
+                  "/components",
+                  "/areas/{area_id}/components",
+                  "/components/{component_id}/data",
+                  "/components/{component_id}/data/{topic_name}"
+              })},
+              {"capabilities", {
+                  {"discovery", true},
+                  {"data_access", true}
+              }}
+          };
 
           res.set_content(info_json.dump(), "application/json");
           res.status = 200;
@@ -155,11 +168,14 @@ TEST_F(TestGatewayNode, test_root_endpoint) {
 
   // Parse and verify JSON
   auto json_response = nlohmann::json::parse(res->body);
-  EXPECT_EQ(json_response["service"], "ros2_medkit_gateway");
+  EXPECT_EQ(json_response["name"], "ROS 2 Medkit Gateway");
   EXPECT_EQ(json_response["version"], "0.1.0");
   EXPECT_TRUE(json_response.contains("endpoints"));
   EXPECT_TRUE(json_response["endpoints"].is_array());
-  EXPECT_EQ(json_response["endpoints"].size(), 2);
+  EXPECT_EQ(json_response["endpoints"].size(), 7);
+  EXPECT_TRUE(json_response.contains("capabilities"));
+  EXPECT_TRUE(json_response["capabilities"]["discovery"]);
+  EXPECT_TRUE(json_response["capabilities"]["data_access"]);
 }
 
 int main(int argc, char **argv) {

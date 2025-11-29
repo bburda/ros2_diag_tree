@@ -9,7 +9,7 @@
       "name": "Discovery",
       "item": [
         {
-          "name": "GET Gateway Info",
+          "name": "GET Server Capabilities",
           "request": {
             "method": "GET",
             "header": [],
@@ -22,7 +22,25 @@
                 ""
               ]
             },
-            "description": "Get gateway status and version information"
+            "description": "Get server capabilities and entry points (REQ_INTEROP_010). Returns server name, version, available endpoints, and capabilities."
+          },
+          "response": []
+        },
+        {
+          "name": "GET Version Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/version-info",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "version-info"
+              ]
+            },
+            "description": "Get gateway status and version information (REQ_INTEROP_001). Returns status, version, and timestamp."
           },
           "response": []
         },
