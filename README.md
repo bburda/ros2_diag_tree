@@ -123,12 +123,19 @@ Then open `coverage_html/index.html` in your browser.
 ### CI/CD
 
 All pull requests and pushes to main are automatically built and tested using GitHub Actions.
-The CI workflow runs on Ubuntu 24.04 with ROS 2 Jazzy and includes:
+The CI workflow runs on Ubuntu 24.04 with ROS 2 Jazzy and consists of two parallel jobs:
+
+**build-and-test:**
 
 - Code linting and formatting checks (clang-format, clang-tidy)
 - Unit tests and integration tests with demo automotive nodes
-- Code coverage report generation (available as artifact on every run)
-- Coverage upload to Codecov (only on push to main)
+
+**coverage:**
+
+- Builds with coverage instrumentation (Debug mode)
+- Runs unit tests only (for stable coverage metrics)
+- Generates lcov coverage report (available as artifact)
+- Uploads coverage to Codecov (only on push to main)
 
 After every run the workflow uploads test results and coverage reports as artifacts for debugging and review.
 

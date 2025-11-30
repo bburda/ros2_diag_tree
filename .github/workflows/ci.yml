@@ -23,15 +23,15 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-format clang-tidy lcov
+          sudo apt-get install -y clang-format clang-tidy
           rosdep update
           rosdep install --from-paths src --ignore-src -r -y
 
-      - name: Build packages with coverage
+      - name: Build packages
         run: |
           source /opt/ros/jazzy/setup.bash
           colcon build --symlink-install \
-            --cmake-args -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON \
+            --cmake-args -DCMAKE_BUILD_TYPE=Release \
             --event-handlers console_direct+
 
       - name: Run linters (clang-format, clang-tidy, etc.)
@@ -64,27 +64,59 @@ jobs:
             log/
             build/*/test_results/
 
-      # Coverage report - always generated
+  coverage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up ROS 2 Jazzy
+        uses: ros-tooling/setup-ros@v0.7
+        with:
+          required-ros-distributions: jazzy
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lcov
+          rosdep update
+          rosdep install --from-paths src --ignore-src -r -y
+
+      - name: Build packages with coverage
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          colcon build --symlink-install \
+            --cmake-args -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON \
+            --event-handlers console_direct+
+
+      - name: Run unit tests only
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          colcon test \
+            --ctest-args -R test_gateway_node -LE linter \
+            --event-handlers console_direct+
+
       - name: Generate coverage report
-        if: always()
         run: |
           lcov --capture --directory build --output-file coverage.info --ignore-errors mismatch,negative
           lcov --remove coverage.info \
             '/usr/*' \
             '/opt/*' \
+            '*/test/*' \
             '*/build/*' \
             '*/install/*' \
             --output-file coverage.info --ignore-errors unused
           lcov --list coverage.info
 
       - name: Upload coverage report as artifact
-        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage.info
 
-      # Upload to Codecov only on push to main
       - name: Upload coverage to Codecov
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: codecov/codecov-action@v5
