@@ -30,6 +30,7 @@ include_directories(include)
 # Gateway node executable
 add_executable(gateway_node
   src/main.cpp
+  src/config.cpp
   src/gateway_node.cpp
   src/rest_server.cpp
   src/discovery_manager.cpp
@@ -94,6 +95,13 @@ if(BUILD_TESTING)
     test/test_integration.test.py
     TARGET test_integration
     TIMEOUT 120
+  )
+
+  # Add CORS integration tests
+  add_launch_test(
+    test/test_cors.test.py
+    TARGET test_cors
+    TIMEOUT 60
   )
 
   # Demo automotive nodes
