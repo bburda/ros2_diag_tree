@@ -28,7 +28,7 @@ GatewayNode::GatewayNode() : Node("ros2_medkit_gateway") {
   declare_parameter("server.port", 8080);
   declare_parameter("refresh_interval_ms", 2000);
   declare_parameter("cors.allowed_origins", std::vector<std::string>{});
-  declare_parameter("cors.allowed_methods", std::vector<std::string>{"GET", "OPTIONS"});
+  declare_parameter("cors.allowed_methods", std::vector<std::string>{"GET", "PUT", "OPTIONS"});
   declare_parameter("cors.allowed_headers", std::vector<std::string>{"Content-Type", "Accept"});
   declare_parameter("cors.allow_credentials", false);
   declare_parameter("cors.max_age_seconds", 86400);
@@ -45,10 +45,19 @@ GatewayNode::GatewayNode() : Node("ros2_medkit_gateway") {
   cors_config_.allow_credentials = get_parameter("cors.allow_credentials").as_bool();
   cors_config_.max_age_seconds = get_parameter("cors.max_age_seconds").as_int();
 
-  // CORS is enabled if any origins are configured or if methods/headers are non-default
-  // Treat missing/empty config as disabled for security
-  cors_config_.enabled = !cors_config_.allowed_origins.empty() || !cors_config_.allowed_methods.empty() ||
-                         !cors_config_.allowed_headers.empty();
+  // CORS is enabled only if allowed_origins is configured
+  // Treat missing/empty origins as disabled for security
+  cors_config_.enabled = !cors_config_.allowed_origins.empty();
+
+  // Validate CORS configuration: credentials cannot be used with wildcard origin
+  if (cors_config_.enabled && cors_config_.allow_credentials) {
+    for (const auto & origin : cors_config_.allowed_origins) {
+      if (origin == "*") {
+        RCLCPP_ERROR(get_logger(), "CORS: allow_credentials cannot be true when allowed_origins contains '*'");
+        throw std::runtime_error("Invalid CORS configuration");
+      }
+    }
+  }
 
   // Validate port range
   if (server_port_ < 1024 || server_port_ > 65535) {

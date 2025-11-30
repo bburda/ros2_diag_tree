@@ -96,6 +96,13 @@ if(BUILD_TESTING)
     TIMEOUT 120
   )
 
+  # Add CORS integration tests
+  add_launch_test(
+    test/test_cors.test.py
+    TARGET test_cors
+    TIMEOUT 60
+  )
+
   # Demo automotive nodes
   add_executable(demo_engine_temp_sensor
     test/demo_nodes/engine_temp_sensor.cpp

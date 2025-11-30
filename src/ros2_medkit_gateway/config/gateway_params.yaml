@@ -32,12 +32,12 @@ ros2_medkit_gateway:
       # List of allowed origins
       # Examples: ["http://localhost:5173", "https://example.com"]
       # Use ["*"] to allow all origins (not recommended for production)
-      # Empty list with other settings = allow all origins
+      # Empty list = allow all origins (not recommended for production)
       allowed_origins: []
 
       # Allowed HTTP methods for CORS requests
-      # Default: ["GET", "OPTIONS"]
-      allowed_methods: ["GET", "OPTIONS"]
+      # Default: ["GET", "PUT", "OPTIONS"]
+      allowed_methods: ["GET", "PUT", "OPTIONS"]
 
       # Allowed headers in CORS requests
       # Use ["*"] to allow all headers

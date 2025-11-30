@@ -31,6 +31,20 @@ RESTServer::RESTServer(GatewayNode * node, const std::string & host, int port, c
   : node_(node), host_(host), port_(port), cors_config_(cors_config) {
   server_ = std::make_unique<httplib::Server>();
 
+  // Pre-build CORS header strings once (performance optimization)
+  for (const auto & method : cors_config_.allowed_methods) {
+    if (!cors_methods_header_.empty()) {
+      cors_methods_header_ += ", ";
+    }
+    cors_methods_header_ += method;
+  }
+  for (const auto & header : cors_config_.allowed_headers) {
+    if (!cors_headers_header_.empty()) {
+      cors_headers_header_ += ", ";
+    }
+    cors_headers_header_ += header;
+  }
+
   // Set up pre-routing handler for CORS (only if enabled)
   if (cors_config_.enabled) {
     server_->set_pre_routing_handler([this](const httplib::Request & req, httplib::Response & res) {
@@ -41,6 +55,8 @@ RESTServer::RESTServer(GatewayNode * node, const std::string & host, int port, c
 
       // Handle preflight OPTIONS requests
       if (req.method == "OPTIONS") {
+        // Set Max-Age only for preflight responses
+        res.set_header("Access-Control-Max-Age", std::to_string(cors_config_.max_age_seconds));
         res.status = 204;  // No Content
         return httplib::Server::HandlerResponse::Handled;
       }
@@ -586,37 +602,18 @@ void RESTServer::handle_component_topic_publish(const httplib::Request & req, ht
 void RESTServer::set_cors_headers(httplib::Response & res, const std::string & origin) const {
   res.set_header("Access-Control-Allow-Origin", origin);
 
-  // Build methods string from config
-  std::string methods_str;
-  for (const auto & method : cors_config_.allowed_methods) {
-    if (!methods_str.empty()) {
-      methods_str += ", ";
-    }
-    methods_str += method;
+  // Use pre-built header strings (built once in constructor)
+  if (!cors_methods_header_.empty()) {
+    res.set_header("Access-Control-Allow-Methods", cors_methods_header_);
   }
-  if (!methods_str.empty()) {
-    res.set_header("Access-Control-Allow-Methods", methods_str);
-  }
-
-  // Build headers string from config
-  std::string headers_str;
-  for (const auto & header : cors_config_.allowed_headers) {
-    if (!headers_str.empty()) {
-      headers_str += ", ";
-    }
-    headers_str += header;
-  }
-  if (!headers_str.empty()) {
-    res.set_header("Access-Control-Allow-Headers", headers_str);
+  if (!cors_headers_header_.empty()) {
+    res.set_header("Access-Control-Allow-Headers", cors_headers_header_);
   }
 
   // Set credentials header if enabled
   if (cors_config_.allow_credentials) {
     res.set_header("Access-Control-Allow-Credentials", "true");
   }
-
-  // Set max age
-  res.set_header("Access-Control-Max-Age", std::to_string(cors_config_.max_age_seconds));
 }
 
 bool RESTServer::is_origin_allowed(const std::string & origin) const {
