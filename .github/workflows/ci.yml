@@ -23,15 +23,15 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-format clang-tidy
+          sudo apt-get install -y clang-format clang-tidy lcov
           rosdep update
           rosdep install --from-paths src --ignore-src -r -y
 
-      - name: Build packages
+      - name: Build packages with coverage
         run: |
           source /opt/ros/jazzy/setup.bash
           colcon build --symlink-install \
-            --cmake-args -DCMAKE_BUILD_TYPE=Release \
+            --cmake-args -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON \
             --event-handlers console_direct+
 
       - name: Run linters (clang-format, clang-tidy, etc.)
@@ -63,3 +63,35 @@ jobs:
           path: |
             log/
             build/*/test_results/
+
+      # Coverage report - always generated
+      - name: Generate coverage report
+        run: |
+          lcov --capture --directory build --output-file coverage.info --ignore-errors mismatch,negative
+          lcov --remove coverage.info \
+            '/usr/*' \
+            '/opt/*' \
+            '*/test/*' \
+            '*/build/*' \
+            '*/install/*' \
+            --output-file coverage.info --ignore-errors unused
+          lcov --list coverage.info
+
+      - name: Upload coverage report as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.info
+
+      # Upload to Codecov only on push to main
+      - name: Upload coverage to Codecov
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.info
+          flags: unittests
+          name: ros2_medkit-coverage
+          fail_ci_if_error: true
+          verbose: true

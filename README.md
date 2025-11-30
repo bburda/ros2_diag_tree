@@ -1,6 +1,7 @@
 # ros2_medkit
 
 [![CI](https://github.com/selfpatch/ros2_medkit/actions/workflows/ci.yml/badge.svg)](https://github.com/selfpatch/ros2_medkit/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/selfpatch/ros2_medkit/branch/main/graph/badge.svg)](https://codecov.io/gh/selfpatch/ros2_medkit)
 [![Docs](https://img.shields.io/badge/docs-GitHub%20Pages-blue)](https://selfpatch.github.io/ros2_medkit/)
 
 Modern, SOVD-compatible diagnostics for ROS 2 robots, built around an entity tree
@@ -86,16 +87,50 @@ colcon test --ctest-args -R test_integration
 colcon test-result --verbose
 ```
 
+### Code Coverage
+
+To generate code coverage reports locally:
+
+1. Build with coverage flags enabled:
+
+```bash
+colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON
+```
+
+2. Run tests:
+
+```bash
+source install/setup.bash
+colcon test --ctest-args -LE linter
+```
+
+3. Generate coverage report:
+
+```bash
+lcov --capture --directory build --output-file coverage.info --ignore-errors mismatch,negative
+lcov --remove coverage.info '/usr/*' '/opt/*' '*/test/*' --output-file coverage.info --ignore-errors unused
+lcov --list coverage.info
+```
+
+4. (Optional) Generate HTML report:
+
+```bash
+genhtml coverage.info --output-directory coverage_html
+```
+
+Then open `coverage_html/index.html` in your browser.
+
 ### CI/CD
 
 All pull requests and pushes to main are automatically built and tested using GitHub Actions.
-The CI workflow runs on Ubuntu 24.04 with ROS 2 Jazzy, executes a single `colcon test` to cover:
+The CI workflow runs on Ubuntu 24.04 with ROS 2 Jazzy and includes:
 
-- Code linting and formatting checks
-- Unit tests
-- Integration tests with demo automotive nodes
+- Code linting and formatting checks (clang-format, clang-tidy)
+- Unit tests and integration tests with demo automotive nodes
+- Code coverage report generation (available as artifact on every run)
+- Coverage upload to Codecov (only on push to main)
 
-After every run the workflow always calls `colcon test-result --verbose` and uploads the generated logs/results as artifacts for debugging.
+After every run the workflow uploads test results and coverage reports as artifacts for debugging and review.
 
 ## Contributing
 
