@@ -88,6 +88,13 @@ coverage.xml
 .pytest_cache/
 cover/
 
+# C++ coverage artifacts (lcov/gcov)
+*.gcda
+*.gcno
+*.gcov
+coverage.info
+coverage_html/
+
 # Translations
 *.mo
 *.pot

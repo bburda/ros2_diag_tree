@@ -24,6 +24,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y clang-format clang-tidy
+          source /opt/ros/jazzy/setup.bash
           rosdep update
           rosdep install --from-paths src --ignore-src -r -y
 
@@ -63,3 +64,93 @@ jobs:
           path: |
             log/
             build/*/test_results/
+
+  coverage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up ROS 2 Jazzy
+        uses: ros-tooling/setup-ros@v0.7
+        with:
+          required-ros-distributions: jazzy
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lcov
+          source /opt/ros/jazzy/setup.bash
+          rosdep update
+          rosdep install --from-paths src --ignore-src -r -y
+
+      - name: Build packages with coverage
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          colcon build --symlink-install \
+            --cmake-args -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON \
+            --event-handlers console_direct+
+
+      - name: Run unit tests only
+        # Run only unit tests for coverage:
+        # -LE linter: exclude linters by label
+        # -E integration: exclude integration tests by name regex
+        run: |
+          source /opt/ros/jazzy/setup.bash
+          source install/setup.bash
+          colcon test \
+            --ctest-args -LE linter -E integration \
+            --event-handlers console_direct+
+
+      - name: Generate coverage report
+        run: |
+          # Capture coverage data with error tolerance
+          lcov --capture --directory build --output-file coverage.raw.info \
+            --ignore-errors mismatch,negative,empty || true
+
+          # Check if we have valid coverage data
+          if [ -s coverage.raw.info ] && grep -q 'SF:' coverage.raw.info; then
+            # Extract only our source code (exclude gtest_vendor and other ROS dependencies)
+            lcov --extract coverage.raw.info \
+              '*/ros2_medkit/src/*/src/*' \
+              '*/ros2_medkit/src/*/include/*' \
+              --output-file coverage.info \
+              --ignore-errors unused,empty || true
+
+            if [ -s coverage.info ]; then
+              lcov --list coverage.info
+              # Generate HTML report
+              genhtml coverage.info --output-directory coverage_html \
+                --ignore-errors source || true
+            else
+              echo "Filtered coverage.info is empty, using raw coverage"
+              cp coverage.raw.info coverage.info
+              lcov --list coverage.info || true
+              genhtml coverage.info --output-directory coverage_html \
+                --ignore-errors source || true
+            fi
+          else
+            echo "No valid coverage data found in coverage.raw.info"
+            echo "Creating empty coverage file to prevent upload failure"
+            touch coverage.info
+            mkdir -p coverage_html
+          fi
+
+      - name: Upload coverage HTML report as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage_html/
+
+      - name: Upload coverage to Codecov
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.info
+          flags: unittests
+          name: ros2_medkit-coverage
+          fail_ci_if_error: true
+          verbose: true

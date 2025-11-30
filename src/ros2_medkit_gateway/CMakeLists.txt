@@ -9,6 +9,14 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+# Code coverage option
+option(ENABLE_COVERAGE "Enable code coverage reporting" OFF)
+if(ENABLE_COVERAGE)
+  message(STATUS "Code coverage enabled")
+  add_compile_options(--coverage -O0 -g)
+  add_link_options(--coverage)
+endif()
+
 # Find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
@@ -27,9 +35,8 @@ pkg_check_modules(cpp_httplib REQUIRED IMPORTED_TARGET cpp-httplib)
 # Include directories
 include_directories(include)
 
-# Gateway node executable
-add_executable(gateway_node
-  src/main.cpp
+# Gateway library (shared between executable and tests for coverage)
+add_library(gateway_lib STATIC
   src/config.cpp
   src/gateway_node.cpp
   src/rest_server.cpp
@@ -39,18 +46,34 @@ add_executable(gateway_node
   src/data_access_manager.cpp
 )
 
-ament_target_dependencies(gateway_node
+ament_target_dependencies(gateway_lib
   rclcpp
   std_msgs
   std_srvs
   rcl_interfaces
 )
 
-target_link_libraries(gateway_node
+target_link_libraries(gateway_lib
   PkgConfig::cpp_httplib
   nlohmann_json::nlohmann_json
   yaml-cpp::yaml-cpp
 )
+
+# Apply coverage flags to library
+if(ENABLE_COVERAGE)
+  target_compile_options(gateway_lib PRIVATE --coverage -O0 -g)
+  target_link_options(gateway_lib PRIVATE --coverage)
+endif()
+
+# Gateway node executable
+add_executable(gateway_node src/main.cpp)
+target_link_libraries(gateway_node gateway_lib)
+
+# Apply coverage flags to gateway_node target
+if(ENABLE_COVERAGE)
+  target_compile_options(gateway_node PRIVATE --coverage -O0 -g)
+  target_link_options(gateway_node PRIVATE --coverage)
+endif()
 
 # Install
 install(TARGETS gateway_node
@@ -78,8 +101,13 @@ if(BUILD_TESTING)
   find_package(ament_cmake_gtest REQUIRED)
 
   ament_add_gtest(test_gateway_node test/test_gateway_node.cpp)
-  target_link_libraries(test_gateway_node PkgConfig::cpp_httplib nlohmann_json::nlohmann_json)
-  ament_target_dependencies(test_gateway_node rclcpp)
+  target_link_libraries(test_gateway_node gateway_lib)
+
+  # Apply coverage flags to test target
+  if(ENABLE_COVERAGE)
+    target_compile_options(test_gateway_node PRIVATE --coverage -O0 -g)
+    target_link_options(test_gateway_node PRIVATE --coverage)
+  endif()
 
   # Integration testing
   find_package(ament_cmake_pytest REQUIRED)

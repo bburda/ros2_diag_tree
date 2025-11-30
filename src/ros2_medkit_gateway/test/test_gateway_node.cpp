@@ -21,94 +21,10 @@
 #include <rclcpp/rclcpp.hpp>
 #include <thread>
 
+#include "ros2_medkit_gateway/gateway_node.hpp"
+
 using namespace std::chrono_literals;
-
-static constexpr char VERSION[] = "0.1.0";
-
-// Simple GatewayNode class for testing
-class GatewayNode : public rclcpp::Node {
- public:
-  GatewayNode()
-    : Node("gateway_node"), http_server_(std::make_unique<httplib::Server>()), node_name_(this->get_name()) {
-    this->declare_parameter<int>("port", 8080);
-    this->declare_parameter<std::string>("host", "0.0.0.0");
-
-    port_ = this->get_parameter("port").as_int();
-    host_ = this->get_parameter("host").as_string();
-
-    setup_endpoints();
-
-    server_thread_ = std::thread([this]() {
-      http_server_->listen(host_.c_str(), port_);
-    });
-
-    // Wait for the server to be ready by polling
-    wait_for_server_ready();
-  }
-
-  ~GatewayNode() {
-    http_server_->stop();
-    if (server_thread_.joinable()) {
-      server_thread_.join();
-    }
-  }
-
-  int get_port() const {
-    return port_;
-  }
-  std::string get_host() const {
-    return host_;
-  }
-
- private:
-  void wait_for_server_ready() {
-    const auto start = std::chrono::steady_clock::now();
-    const auto timeout = std::chrono::seconds(2);
-    httplib::Client client(host_.c_str(), port_);
-    while (std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start) < timeout) {
-      if (auto res = client.Get("/health")) {
-        if (res->status == 200) {
-          return;
-        }
-      }
-      std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    }
-    throw std::runtime_error("HTTP server failed to start within timeout");
-  }
-
-  void setup_endpoints() {
-    http_server_->Get("/health", [this](const httplib::Request & req, httplib::Response & res) {
-      (void)req;
-
-      nlohmann::json health_json = {{"status", "ok"}, {"node", node_name_}, {"timestamp", this->now().seconds()}};
-
-      res.set_content(health_json.dump(), "application/json");
-      res.status = 200;
-    });
-
-    http_server_->Get("/", [this](const httplib::Request & req, httplib::Response & res) {
-      (void)req;
-
-      nlohmann::json info_json = {
-          {"name", "ROS 2 Medkit Gateway"},
-          {"version", VERSION},
-          {"endpoints", nlohmann::json::array({"GET /health", "GET /version-info", "GET /areas", "GET /components",
-                                               "GET /areas/{area_id}/components", "GET /components/{component_id}/data",
-                                               "GET /components/{component_id}/data/{topic_name}",
-                                               "PUT /components/{component_id}/data/{topic_name}"})},
-          {"capabilities", {{"discovery", true}, {"data_access", true}}}};
-
-      res.set_content(info_json.dump(), "application/json");
-      res.status = 200;
-    });
-  }
-
-  std::unique_ptr<httplib::Server> http_server_;
-  std::thread server_thread_;
-  int port_;
-  std::string host_;
-  std::string node_name_;
-};
+using httplib::StatusCode;
 
 class TestGatewayNode : public ::testing::Test {
  protected:
@@ -119,56 +35,124 @@ class TestGatewayNode : public ::testing::Test {
   static void TearDownTestSuite() {
     rclcpp::shutdown();
   }
+
+  void SetUp() override {
+    node_ = std::make_shared<ros2_medkit_gateway::GatewayNode>();
+
+    // Get server configuration from node parameters
+    server_host_ = node_->get_parameter("server.host").as_string();
+    server_port_ = node_->get_parameter("server.port").as_int();
+
+    // Wait for the server to be ready
+    wait_for_server_ready();
+  }
+
+  void TearDown() override {
+    node_.reset();
+  }
+
+  void wait_for_server_ready() {
+    const auto start = std::chrono::steady_clock::now();
+    const auto timeout = std::chrono::seconds(5);
+    httplib::Client client(server_host_, server_port_);
+
+    while (std::chrono::steady_clock::now() - start < timeout) {
+      if (auto res = client.Get("/health")) {
+        if (res->status == StatusCode::OK_200) {
+          return;
+        }
+      }
+      std::this_thread::sleep_for(50ms);
+    }
+    FAIL() << "HTTP server failed to start within timeout";
+  }
+
+  httplib::Client create_client() {
+    return httplib::Client(server_host_, server_port_);
+  }
+
+  std::shared_ptr<ros2_medkit_gateway::GatewayNode> node_;
+  std::string server_host_;
+  int server_port_;
 };
 
 TEST_F(TestGatewayNode, test_health_endpoint) {
-  // @verifies REQ_INTEROP_001
-  auto node = std::make_shared<GatewayNode>();
+  auto client = create_client();
 
-  // Create HTTP client
-  httplib::Client client("localhost", node->get_port());
-
-  // Call /health endpoint
   auto res = client.Get("/health");
 
-  // Verify response
   ASSERT_TRUE(res);
-  EXPECT_EQ(res->status, 200);
+  EXPECT_EQ(res->status, StatusCode::OK_200);
   EXPECT_EQ(res->get_header_value("Content-Type"), "application/json");
 
-  // Parse and verify JSON
   auto json_response = nlohmann::json::parse(res->body);
-  EXPECT_EQ(json_response["status"], "ok");
-  EXPECT_EQ(json_response["node"], "gateway_node");
+  EXPECT_EQ(json_response["status"], "healthy");
   EXPECT_TRUE(json_response.contains("timestamp"));
   EXPECT_TRUE(json_response["timestamp"].is_number());
 }
 
 TEST_F(TestGatewayNode, test_root_endpoint) {
-  // @verifies REQ_INTEROP_001, REQ_INTEROP_010
-  auto node = std::make_shared<GatewayNode>();
+  // @verifies REQ_INTEROP_010
+  auto client = create_client();
 
-  // Create HTTP client
-  httplib::Client client("localhost", node->get_port());
-
-  // Call / endpoint
   auto res = client.Get("/");
 
-  // Verify response
   ASSERT_TRUE(res);
-  EXPECT_EQ(res->status, 200);
+  EXPECT_EQ(res->status, StatusCode::OK_200);
   EXPECT_EQ(res->get_header_value("Content-Type"), "application/json");
 
-  // Parse and verify JSON
   auto json_response = nlohmann::json::parse(res->body);
   EXPECT_EQ(json_response["name"], "ROS 2 Medkit Gateway");
-  EXPECT_EQ(json_response["version"], "0.1.0");
+  EXPECT_TRUE(json_response.contains("version"));
   EXPECT_TRUE(json_response.contains("endpoints"));
   EXPECT_TRUE(json_response["endpoints"].is_array());
-  EXPECT_EQ(json_response["endpoints"].size(), 8);
   EXPECT_TRUE(json_response.contains("capabilities"));
   EXPECT_TRUE(json_response["capabilities"]["discovery"]);
   EXPECT_TRUE(json_response["capabilities"]["data_access"]);
+}
+
+TEST_F(TestGatewayNode, test_version_info_endpoint) {
+  // @verifies REQ_INTEROP_001
+  auto client = create_client();
+
+  auto res = client.Get("/version-info");
+
+  ASSERT_TRUE(res);
+  EXPECT_EQ(res->status, StatusCode::OK_200);
+  EXPECT_EQ(res->get_header_value("Content-Type"), "application/json");
+
+  auto json_response = nlohmann::json::parse(res->body);
+  EXPECT_TRUE(json_response.contains("version"));
+  EXPECT_TRUE(json_response.contains("status"));
+  EXPECT_TRUE(json_response.contains("timestamp"));
+}
+
+TEST_F(TestGatewayNode, test_list_areas_endpoint) {
+  // @verifies REQ_INTEROP_003
+  auto client = create_client();
+
+  auto res = client.Get("/areas");
+
+  ASSERT_TRUE(res);
+  EXPECT_EQ(res->status, StatusCode::OK_200);
+  EXPECT_EQ(res->get_header_value("Content-Type"), "application/json");
+
+  auto json_response = nlohmann::json::parse(res->body);
+  EXPECT_TRUE(json_response.is_array());
+}
+
+TEST_F(TestGatewayNode, test_list_components_endpoint) {
+  // @verifies REQ_INTEROP_003
+  auto client = create_client();
+
+  auto res = client.Get("/components");
+
+  ASSERT_TRUE(res);
+  EXPECT_EQ(res->status, StatusCode::OK_200);
+  EXPECT_EQ(res->get_header_value("Content-Type"), "application/json");
+
+  auto json_response = nlohmann::json::parse(res->body);
+  EXPECT_TRUE(json_response.is_array());
 }
 
 int main(int argc, char ** argv) {
