@@ -9,6 +9,14 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+# Code coverage option
+option(ENABLE_COVERAGE "Enable code coverage reporting" OFF)
+if(ENABLE_COVERAGE)
+  message(STATUS "Code coverage enabled")
+  add_compile_options(--coverage -O0 -g)
+  add_link_options(--coverage)
+endif()
+
 # Find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
