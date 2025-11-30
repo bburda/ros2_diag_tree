@@ -13,7 +13,7 @@ endif()
 option(ENABLE_COVERAGE "Enable code coverage reporting" OFF)
 if(ENABLE_COVERAGE)
   message(STATUS "Code coverage enabled")
-  add_compile_options(--coverage -fprofile-arcs -ftest-coverage -O0 -g)
+  add_compile_options(--coverage -O0 -g)
   add_link_options(--coverage)
 endif()
 

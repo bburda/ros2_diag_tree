@@ -21,7 +21,7 @@ coverage:
 # Ignore paths from coverage reporting
 ignore:
   - "test/**/*"                    # Test files
-  - "test/demo_nodes/**/*"         # Demo nodes for integration testing
+
   - "**/test_*.cpp"                # Test source files
   - "build/**/*"                   # Build artifacts
   - "install/**/*"                 # Install artifacts

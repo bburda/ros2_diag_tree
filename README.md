@@ -108,7 +108,7 @@ colcon test --ctest-args -LE linter
 
 ```bash
 lcov --capture --directory build --output-file coverage.info --ignore-errors mismatch,negative
-lcov --remove coverage.info '/usr/*' '/opt/*' '*/test/*' --output-file coverage.info --ignore-errors unused
+lcov --remove coverage.info '/usr/*' '/opt/*' '*/test/*' '*/build/*' '*/install/*' --output-file coverage.info --ignore-errors unused
 lcov --list coverage.info
 ```
 
