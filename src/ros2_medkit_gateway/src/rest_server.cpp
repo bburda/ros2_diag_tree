@@ -362,10 +362,10 @@ void RESTServer::handle_component_data(const httplib::Request & req, httplib::Re
       return;
     }
 
-    // Get component data from DataAccessManager
+    // Get component data from DataAccessManager (with fallback to metadata)
     // Use namespace_path to find topics (topics are relative to namespace, not FQN)
     auto data_access_mgr = node_->get_data_access_manager();
-    json component_data = data_access_mgr->get_component_data(component_namespace);
+    json component_data = data_access_mgr->get_component_data_with_fallback(component_namespace);
 
     res.set_content(component_data.dump(2), "application/json");
   } catch (const std::exception & e) {
@@ -442,16 +442,16 @@ void RESTServer::handle_component_topic_data(const httplib::Request & req, httpl
     std::string full_topic_path =
         (component_namespace == "/") ? "/" + topic_name : component_namespace + "/" + topic_name;
 
-    // Get topic data from DataAccessManager
+    // Get topic data from DataAccessManager (with fallback to metadata if data unavailable)
     auto data_access_mgr = node_->get_data_access_manager();
-    json topic_data = data_access_mgr->get_topic_sample(full_topic_path);
+    json topic_data = data_access_mgr->get_topic_sample_with_fallback(full_topic_path);
 
     res.set_content(topic_data.dump(2), "application/json");
   } catch (const TopicNotAvailableException & e) {
+    // Topic doesn't exist or metadata retrieval failed
     res.status = StatusCode::NotFound_404;
     res.set_content(
-        json{{"error", "Topic not found or not publishing"}, {"component_id", component_id}, {"topic_name", topic_name}}
-            .dump(2),
+        json{{"error", "Topic not found"}, {"component_id", component_id}, {"topic_name", topic_name}}.dump(2),
         "application/json");
     RCLCPP_ERROR(rclcpp::get_logger("rest_server"), "Topic not available for component '%s', topic '%s': %s",
                  component_id.c_str(), topic_name.c_str(), e.what());

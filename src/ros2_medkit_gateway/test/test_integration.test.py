@@ -329,12 +329,16 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
         data = self._get_json('/components/temp_sensor/data')
         self.assertIsInstance(data, list)
 
-        # Should have at least one topic with data
+        # Should have at least one topic with data or metadata
         if len(data) > 0:
             for topic_data in data:
                 self.assertIn('topic', topic_data)
-                self.assertIn('data', topic_data)
-                print(f'  - Topic: {topic_data["topic"]}')
+                self.assertIn('status', topic_data)
+                # Status can be 'data' (with actual data) or 'metadata_only' (fallback)
+                self.assertIn(topic_data['status'], ['data', 'metadata_only'])
+                if topic_data['status'] == 'data':
+                    self.assertIn('data', topic_data)
+                print(f'  - Topic: {topic_data["topic"]} (status: {topic_data["status"]})')
 
         print(f'✓ Engine component data test passed: {len(data)} topics')
 
@@ -348,11 +352,15 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
         data = self._get_json('/components/pressure_sensor/data')
         self.assertIsInstance(data, list)
 
-        # Check if any data is available
+        # Check if any data/metadata is available
         if len(data) > 0:
             for topic_data in data:
                 self.assertIn('topic', topic_data)
-                self.assertIn('data', topic_data)
+                self.assertIn('status', topic_data)
+                # Status can be 'data' (with actual data) or 'metadata_only' (fallback)
+                self.assertIn(topic_data['status'], ['data', 'metadata_only'])
+                if topic_data['status'] == 'data':
+                    self.assertIn('data', topic_data)
 
         print(f'✓ Brakes component data test passed: {len(data)} topics')
 
@@ -370,7 +378,11 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
         if len(data) > 0:
             for topic_data in data:
                 self.assertIn('topic', topic_data)
-                self.assertIn('data', topic_data)
+                self.assertIn('status', topic_data)
+                # Status can be 'data' (with actual data) or 'metadata_only' (fallback)
+                self.assertIn(topic_data['status'], ['data', 'metadata_only'])
+                if topic_data['status'] == 'data':
+                    self.assertIn('data', topic_data)
 
         print(f'✓ Door component data test passed: {len(data)} topics')
 
@@ -388,14 +400,29 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
             first_item = data[0]
             self.assertIn('topic', first_item, "Each item should have 'topic' field")
             self.assertIn('timestamp', first_item, "Each item should have 'timestamp' field")
-            self.assertIn('data', first_item, "Each item should have 'data' field")
+            self.assertIn('status', first_item, "Each item should have 'status' field")
             self.assertIsInstance(first_item['topic'], str, "'topic' should be a string")
             self.assertIsInstance(
                 first_item['timestamp'],
                 int,
                 "'timestamp' should be an integer (nanoseconds)"
             )
-            self.assertIsInstance(first_item['data'], dict, "'data' should be an object")
+            # Status can be 'data' or 'metadata_only'
+            self.assertIn(first_item['status'], ['data', 'metadata_only'])
+            if first_item['status'] == 'data':
+                self.assertIn('data', first_item, "status=data should have 'data'")
+                self.assertIsInstance(first_item['data'], dict, "'data' should be object")
+
+            # Verify metadata fields are present (for both data and metadata_only)
+            self.assertIn('type', first_item, "Each item should have 'type' field")
+            self.assertIn('type_info', first_item, "Each item should have 'type_info'")
+            self.assertIn('publisher_count', first_item, "Should have 'publisher_count'")
+            self.assertIn('subscriber_count', first_item, "Should have 'subscriber_count'")
+
+            # Verify type_info structure
+            type_info = first_item['type_info']
+            self.assertIn('schema', type_info, "'type_info' should have 'schema'")
+            self.assertIn('default_value', type_info, "'type_info' should have 'default_value'")
 
         print('✓ Component data structure test passed')
 
@@ -576,12 +603,15 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
         data = response.json()
         self.assertIn('topic', data)
         self.assertIn('timestamp', data)
-        self.assertIn('data', data)
+        self.assertIn('status', data)
         self.assertEqual(data['topic'], '/powertrain/engine/temperature')
         self.assertIsInstance(data['timestamp'], int)
-        self.assertIsInstance(data['data'], dict)
+        self.assertIn(data['status'], ['data', 'metadata_only'])
+        if data['status'] == 'data':
+            self.assertIn('data', data)
+            self.assertIsInstance(data['data'], dict)
 
-        print(f'✓ Component topic temperature test passed: {data["topic"]}')
+        print(f'✓ Temperature test passed: {data["topic"]} ({data["status"]})')
 
     def test_18_component_topic_rpm(self):
         """
@@ -598,10 +628,13 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
         data = response.json()
         self.assertIn('topic', data)
         self.assertIn('timestamp', data)
-        self.assertIn('data', data)
+        self.assertIn('status', data)
         self.assertEqual(data['topic'], '/powertrain/engine/rpm')
+        self.assertIn(data['status'], ['data', 'metadata_only'])
+        if data['status'] == 'data':
+            self.assertIn('data', data)
 
-        print(f'✓ Component topic RPM test passed: {data["topic"]}')
+        print(f'✓ Component topic RPM test passed: {data["topic"]} (status: {data["status"]})')
 
     def test_19_component_topic_pressure(self):
         """
@@ -618,10 +651,13 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
         data = response.json()
         self.assertIn('topic', data)
         self.assertIn('timestamp', data)
-        self.assertIn('data', data)
+        self.assertIn('status', data)
         self.assertEqual(data['topic'], '/chassis/brakes/pressure')
+        self.assertIn(data['status'], ['data', 'metadata_only'])
+        if data['status'] == 'data':
+            self.assertIn('data', data)
 
-        print(f'✓ Component topic pressure test passed: {data["topic"]}')
+        print(f'✓ Pressure test passed: {data["topic"]} ({data["status"]})')
 
     def test_20_component_topic_data_structure(self):
         """
@@ -639,7 +675,7 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
         # Verify all required fields
         self.assertIn('topic', data, "Response should have 'topic' field")
         self.assertIn('timestamp', data, "Response should have 'timestamp' field")
-        self.assertIn('data', data, "Response should have 'data' field")
+        self.assertIn('status', data, "Response should have 'status' field")
 
         # Verify field types
         self.assertIsInstance(data['topic'], str, "'topic' should be a string")
@@ -648,7 +684,11 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
             int,
             "'timestamp' should be an integer (nanoseconds)"
         )
-        self.assertIsInstance(data['data'], dict, "'data' should be an object")
+        # Status can be 'data' or 'metadata_only'
+        self.assertIn(data['status'], ['data', 'metadata_only'])
+        if data['status'] == 'data':
+            self.assertIn('data', data, "Response with status=data should have 'data' field")
+            self.assertIsInstance(data['data'], dict, "'data' should be an object")
 
         # Verify topic path format
         self.assertTrue(
@@ -672,7 +712,7 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
 
         data = response.json()
         self.assertIn('error', data)
-        self.assertEqual(data['error'], 'Topic not found or not publishing')
+        self.assertEqual(data['error'], 'Topic not found')
         self.assertIn('component_id', data)
         self.assertEqual(data['component_id'], 'temp_sensor')
         self.assertIn('topic_name', data)

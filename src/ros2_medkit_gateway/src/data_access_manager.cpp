@@ -20,6 +20,8 @@
 #include <future>
 #include <sstream>
 
+#include <ament_index_cpp/get_package_share_directory.hpp>
+
 #include "ros2_medkit_gateway/exceptions.hpp"
 
 namespace ros2_medkit_gateway {
@@ -28,6 +30,8 @@ DataAccessManager::DataAccessManager(rclcpp::Node * node)
   : node_(node)
   , cli_wrapper_(std::make_unique<ROS2CLIWrapper>())
   , output_parser_(std::make_unique<OutputParser>())
+  , type_introspection_(std::make_unique<TypeIntrospection>(
+        ament_index_cpp::get_package_share_directory("ros2_medkit_gateway") + "/scripts"))
   , max_parallel_samples_(node->declare_parameter<int>("max_parallel_topic_samples", 10)) {
   // Validate max_parallel_samples_ against allowed range [1, 50]
   if (max_parallel_samples_ < 1 || max_parallel_samples_ > 50) {
@@ -206,6 +210,93 @@ json DataAccessManager::publish_to_topic(const std::string & topic_path, const s
     RCLCPP_ERROR(node_->get_logger(), "Failed to publish to topic '%s': %s", topic_path.c_str(), e.what());
     throw std::runtime_error("Failed to publish to topic '" + topic_path + "': " + e.what());
   }
+}
+
+json DataAccessManager::get_topic_sample_with_fallback(const std::string & topic_name, double timeout_sec) {
+  json data_result;
+  bool has_data = false;
+
+  // First, try to get actual data
+  try {
+    data_result = get_topic_sample(topic_name, timeout_sec);
+    has_data = true;
+  } catch (const TopicNotAvailableException &) {
+    RCLCPP_INFO(node_->get_logger(), "Topic '%s' data unavailable, returning metadata", topic_name.c_str());
+  }
+
+  // Try to enrich with type information (for both data and metadata-only cases)
+  try {
+    TopicMetadata metadata = type_introspection_->get_topic_metadata(topic_name);
+    TopicTypeInfo type_info = type_introspection_->get_type_info(metadata.type_name);
+
+    if (has_data) {
+      data_result["status"] = "data";
+      data_result["type"] = metadata.type_name;
+      data_result["type_info"] = {{"schema", type_info.schema}, {"default_value", type_info.default_value}};
+      data_result["publisher_count"] = metadata.publisher_count;
+      data_result["subscriber_count"] = metadata.subscriber_count;
+      return data_result;
+    } else {
+      json result = {{"topic", topic_name},
+                     {"status", "metadata_only"},
+                     {"type", metadata.type_name},
+                     {"type_info", {{"schema", type_info.schema}, {"default_value", type_info.default_value}}},
+                     {"publisher_count", metadata.publisher_count},
+                     {"subscriber_count", metadata.subscriber_count},
+                     {"timestamp", std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                       std::chrono::system_clock::now().time_since_epoch())
+                                       .count()}};
+      return result;
+    }
+  } catch (const std::exception & e) {
+    RCLCPP_ERROR(node_->get_logger(), "Failed to get metadata for topic '%s': %s", topic_name.c_str(), e.what());
+    // If we had data but metadata failed, return data without enrichment
+    if (has_data) {
+      data_result["status"] = "data";
+      return data_result;
+    }
+    throw TopicNotAvailableException(topic_name);
+  }
+}
+
+json DataAccessManager::get_component_data_with_fallback(const std::string & component_namespace, double timeout_sec) {
+  json result = json::array();
+
+  auto topics = find_component_topics(component_namespace);
+
+  if (topics.empty()) {
+    RCLCPP_WARN(node_->get_logger(), "No topics found under namespace '%s'", component_namespace.c_str());
+    return result;
+  }
+
+  RCLCPP_INFO(node_->get_logger(), "Sampling %zu topics with fallback (batch size: %d)", topics.size(),
+              max_parallel_samples_);
+
+  for (size_t i = 0; i < topics.size(); i += max_parallel_samples_) {
+    size_t batch_size = std::min(static_cast<size_t>(max_parallel_samples_), topics.size() - i);
+
+    std::vector<std::future<json>> futures;
+    futures.reserve(batch_size);
+
+    for (size_t j = 0; j < batch_size; ++j) {
+      const auto & topic = topics[i + j];
+      futures.push_back(std::async(std::launch::async, [this, topic, timeout_sec]() -> json {
+        return get_topic_sample_with_fallback(topic, timeout_sec);
+      }));
+    }
+
+    for (size_t j = 0; j < batch_size; ++j) {
+      const auto & topic = topics[i + j];
+      try {
+        json topic_data = futures[j].get();
+        result.push_back(topic_data);
+      } catch (const std::exception & e) {
+        RCLCPP_WARN(node_->get_logger(), "Failed to get data/metadata from topic '%s': %s", topic.c_str(), e.what());
+      }
+    }
+  }
+
+  return result;
 }
 
 }  // namespace ros2_medkit_gateway
