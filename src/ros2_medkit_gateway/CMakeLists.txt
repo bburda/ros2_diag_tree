@@ -27,6 +27,7 @@ find_package(rcl_interfaces REQUIRED)
 find_package(nlohmann_json REQUIRED)
 find_package(yaml_cpp_vendor REQUIRED)
 find_package(yaml-cpp REQUIRED)
+find_package(ament_index_cpp REQUIRED)
 
 # Find cpp-httplib using pkg-config
 find_package(PkgConfig REQUIRED)
@@ -44,6 +45,7 @@ add_library(gateway_lib STATIC
   src/ros2_cli_wrapper.cpp
   src/output_parser.cpp
   src/data_access_manager.cpp
+  src/type_introspection.cpp
 )
 
 ament_target_dependencies(gateway_lib
@@ -51,6 +53,7 @@ ament_target_dependencies(gateway_lib
   std_msgs
   std_srvs
   rcl_interfaces
+  ament_index_cpp
 )
 
 target_link_libraries(gateway_lib
@@ -82,6 +85,11 @@ install(TARGETS gateway_node
 
 install(DIRECTORY launch config
   DESTINATION share/${PROJECT_NAME}
+)
+
+# Install scripts with execute permissions explicitly set
+install(PROGRAMS scripts/get_type_schema.py
+  DESTINATION share/${PROJECT_NAME}/scripts
 )
 
 # Testing

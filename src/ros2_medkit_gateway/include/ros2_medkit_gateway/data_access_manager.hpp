@@ -22,6 +22,7 @@
 
 #include "ros2_medkit_gateway/output_parser.hpp"
 #include "ros2_medkit_gateway/ros2_cli_wrapper.hpp"
+#include "ros2_medkit_gateway/type_introspection.hpp"
 
 namespace ros2_medkit_gateway {
 
@@ -52,6 +53,37 @@ class DataAccessManager {
   json publish_to_topic(const std::string & topic_path, const std::string & msg_type, const json & data,
                         double timeout_sec = 5.0);
 
+  /**
+   * @brief Get topic sample with fallback to metadata on timeout
+   *
+   * If the topic is publishing, returns actual data with type info.
+   * If the topic times out, returns metadata (type, schema, pub/sub counts) instead of error.
+   *
+   * @param topic_name Full topic path (e.g., "/powertrain/engine/temperature")
+   * @param timeout_sec Timeout for data retrieval (default: 3.0 seconds)
+   * @return JSON object with one of two structures:
+   *   - status="data": {topic, timestamp, data, status, type, type_info, publisher_count, subscriber_count}
+   *   - status="metadata_only": {topic, timestamp, status, type, type_info, publisher_count, subscriber_count}
+   * @throws TopicNotAvailableException if topic doesn't exist or metadata cannot be retrieved
+   */
+  json get_topic_sample_with_fallback(const std::string & topic_name, double timeout_sec = 3.0);
+
+  /**
+   * @brief Get component data with fallback to metadata for unavailable topics
+   *
+   * @param component_namespace Component's namespace
+   * @param timeout_sec Timeout per topic
+   * @return JSON array with topic data/metadata
+   */
+  json get_component_data_with_fallback(const std::string & component_namespace, double timeout_sec = 3.0);
+
+  /**
+   * @brief Get the type introspection instance
+   */
+  TypeIntrospection * get_type_introspection() const {
+    return type_introspection_.get();
+  }
+
  private:
   /**
    * @brief Find all topics under a given namespace
@@ -61,6 +93,7 @@ class DataAccessManager {
   rclcpp::Node * node_;
   std::unique_ptr<ROS2CLIWrapper> cli_wrapper_;
   std::unique_ptr<OutputParser> output_parser_;
+  std::unique_ptr<TypeIntrospection> type_introspection_;
   int max_parallel_samples_;
 };
 
