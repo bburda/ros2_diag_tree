@@ -335,6 +335,17 @@ The gateway can be configured via parameters in `config/gateway_params.yaml` or 
 | `refresh_interval_ms`        | int    | `2000`      | Cache refresh interval in milliseconds (range: 100-60000)                              |
 | `max_parallel_topic_samples` | int    | `10`        | Max concurrent topic samples when fetching data (range: 1-50)                          |
 
+#### Native Sampling
+
+The gateway always uses native rclcpp APIs for topic discovery and sampling. This provides significant UX improvements:
+
+- **Instant metadata for idle topics**: Topics without publishers return immediately with metadata (type, schema) instead of waiting for a 3-second timeout
+- **Faster discovery**: Uses `node->get_topic_names_and_types()` instead of `ros2 topic list`
+- **No external dependencies**: Works without GNU `timeout` command (useful in containers)
+- **Better responsiveness**: Robots waiting for commands (many idle topics) respond instantly
+
+CLI is only used for publishing (`ros2 topic pub`), as native publishing requires compile-time type knowledge.
+
 #### CORS Configuration
 
 Cross-Origin Resource Sharing (CORS) settings for browser-based clients. CORS is **enabled automatically** when `allowed_origins` is not empty.

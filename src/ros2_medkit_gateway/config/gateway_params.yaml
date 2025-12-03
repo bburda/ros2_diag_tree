@@ -56,3 +56,11 @@ ros2_medkit_gateway:
     # Higher values improve response time but use more system resources
     # Valid range: 1-50
     max_parallel_topic_samples: 10
+
+    # NOTE: Native sampling is always enabled
+    # The gateway uses native rclcpp APIs for topic discovery and sampling:
+    # - Uses node->get_topic_names_and_types() instead of `ros2 topic list`
+    # - Checks publisher counts before sampling to skip idle topics immediately
+    # - Returns metadata instantly for topics without publishers (no CLI timeout wait)
+    # This significantly improves UX when many topics are idle (e.g., robot waiting for commands)
+    # CLI is only used for publishing (ros2 topic pub)

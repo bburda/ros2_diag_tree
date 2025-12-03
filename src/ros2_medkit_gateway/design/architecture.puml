@@ -31,9 +31,19 @@ package "ros2_medkit_gateway" {
     }
 
     class DataAccessManager {
-        + get_topic_sample(): json
-        + get_component_data(): json
-        - find_component_topics(): vector<string>
+        + get_topic_sample_with_fallback(): json
+        + get_component_data_with_fallback(): json
+        + publish_to_topic(): json
+        + get_topic_sample_native(): json
+        + get_component_data_native(): json
+        - find_component_topics_native(): vector<string>
+    }
+
+    class NativeTopicSampler {
+        + discover_all_topics(): vector<TopicInfo>
+        + discover_topics(): vector<TopicInfo>
+        + sample_topic(): TopicSampleResult
+        + sample_topics_parallel(): vector<TopicSampleResult>
     }
 
     class ROS2CLIWrapper {
@@ -94,8 +104,12 @@ RESTServer --> GatewayNode : uses
 RESTServer --> DataAccessManager : uses
 
 ' DataAccessManager owns utility classes
-DataAccessManager *--> ROS2CLIWrapper : owns
+DataAccessManager *--> ROS2CLIWrapper : owns (publishing)
 DataAccessManager *--> OutputParser : owns
+DataAccessManager *--> NativeTopicSampler : owns
+
+' NativeTopicSampler uses Node interface
+NativeTopicSampler --> "rclcpp::Node" : uses
 
 ' Entity Cache aggregates entities
 EntityCache o-right-> Area : contains many

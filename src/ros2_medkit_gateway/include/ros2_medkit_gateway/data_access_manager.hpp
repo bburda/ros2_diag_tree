@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 
+#include "ros2_medkit_gateway/native_topic_sampler.hpp"
 #include "ros2_medkit_gateway/output_parser.hpp"
 #include "ros2_medkit_gateway/ros2_cli_wrapper.hpp"
 #include "ros2_medkit_gateway/type_introspection.hpp"
@@ -31,16 +32,6 @@ using json = nlohmann::json;
 class DataAccessManager {
  public:
   explicit DataAccessManager(rclcpp::Node * node);
-
-  /**
-   * @brief Get a single sample from a specific topic
-   */
-  json get_topic_sample(const std::string & topic_name, double timeout_sec = 3.0);
-
-  /**
-   * @brief Get all data from topics under a component's namespace
-   */
-  json get_component_data(const std::string & component_namespace, double timeout_sec = 3.0);
 
   /**
    * @brief Publish data to a specific topic
@@ -60,22 +51,22 @@ class DataAccessManager {
    * If the topic times out, returns metadata (type, schema, pub/sub counts) instead of error.
    *
    * @param topic_name Full topic path (e.g., "/powertrain/engine/temperature")
-   * @param timeout_sec Timeout for data retrieval (default: 3.0 seconds)
+   * @param timeout_sec Timeout for data retrieval (default: 1.0 second)
    * @return JSON object with one of two structures:
    *   - status="data": {topic, timestamp, data, status, type, type_info, publisher_count, subscriber_count}
    *   - status="metadata_only": {topic, timestamp, status, type, type_info, publisher_count, subscriber_count}
    * @throws TopicNotAvailableException if topic doesn't exist or metadata cannot be retrieved
    */
-  json get_topic_sample_with_fallback(const std::string & topic_name, double timeout_sec = 3.0);
+  json get_topic_sample_with_fallback(const std::string & topic_name, double timeout_sec = 1.0);
 
   /**
    * @brief Get component data with fallback to metadata for unavailable topics
    *
    * @param component_namespace Component's namespace
-   * @param timeout_sec Timeout per topic
+   * @param timeout_sec Timeout per topic (default: 1.0 second)
    * @return JSON array with topic data/metadata
    */
-  json get_component_data_with_fallback(const std::string & component_namespace, double timeout_sec = 3.0);
+  json get_component_data_with_fallback(const std::string & component_namespace, double timeout_sec = 1.0);
 
   /**
    * @brief Get the type introspection instance
@@ -84,16 +75,47 @@ class DataAccessManager {
     return type_introspection_.get();
   }
 
+  /**
+   * @brief Get component data using native rclcpp APIs (fast, no CLI overhead)
+   *
+   * This method uses the NativeTopicSampler to:
+   * - Discover topics via node_->get_topic_names_and_types() instead of `ros2 topic list`
+   * - Check publisher counts before sampling to skip idle topics immediately
+   * - Return metadata for topics without publishers without waiting for timeout
+   *
+   * @param component_namespace Component's namespace (e.g., "/powertrain/engine")
+   * @param timeout_sec Timeout per topic for topics that have publishers
+   * @return JSON array with topic data/metadata
+   */
+  json get_component_data_native(const std::string & component_namespace, double timeout_sec = 1.0);
+
+  /**
+   * @brief Get single topic sample using native rclcpp APIs
+   *
+   * Fast path for single topic sampling with publisher count check.
+   *
+   * @param topic_name Full topic path
+   * @param timeout_sec Timeout for sampling (only used if topic has publishers)
+   * @return JSON with topic data or metadata
+   */
+  json get_topic_sample_native(const std::string & topic_name, double timeout_sec = 1.0);
+
  private:
   /**
-   * @brief Find all topics under a given namespace
+   * @brief Find all topics under a given namespace using native API
    */
-  std::vector<std::string> find_component_topics(const std::string & component_namespace);
+  std::vector<std::string> find_component_topics_native(const std::string & component_namespace);
+
+  /**
+   * @brief Convert TopicSampleResult to JSON with type info enrichment
+   */
+  json sample_result_to_json(const TopicSampleResult & sample);
 
   rclcpp::Node * node_;
   std::unique_ptr<ROS2CLIWrapper> cli_wrapper_;
   std::unique_ptr<OutputParser> output_parser_;
   std::unique_ptr<TypeIntrospection> type_introspection_;
+  std::unique_ptr<NativeTopicSampler> native_sampler_;
   int max_parallel_samples_;
 };
 

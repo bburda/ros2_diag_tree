@@ -44,9 +44,19 @@ The following diagram shows the relationships between the main components of the
        }
 
        class DataAccessManager {
-           + get_topic_sample(): json
-           + get_component_data(): json
-           - find_component_topics(): vector<string>
+           + get_topic_sample_with_fallback(): json
+           + get_component_data_with_fallback(): json
+           + publish_to_topic(): json
+           + get_topic_sample_native(): json
+           + get_component_data_native(): json
+           - find_component_topics_native(): vector<string>
+       }
+
+       class NativeTopicSampler {
+           + discover_all_topics(): vector<TopicInfo>
+           + discover_topics(): vector<TopicInfo>
+           + sample_topic(): TopicSampleResult
+           + sample_topics_parallel(): vector<TopicSampleResult>
        }
 
        class ROS2CLIWrapper {
@@ -107,8 +117,12 @@ The following diagram shows the relationships between the main components of the
    RESTServer --> DataAccessManager : uses
 
    ' DataAccessManager owns utility classes
-   DataAccessManager *--> ROS2CLIWrapper : owns
+   DataAccessManager *--> ROS2CLIWrapper : owns (publishing)
    DataAccessManager *--> OutputParser : owns
+   DataAccessManager *--> NativeTopicSampler : owns
+
+   ' NativeTopicSampler uses Node interface
+   NativeTopicSampler --> "rclcpp::Node" : uses
 
    ' Entity Cache aggregates entities
    EntityCache o-right-> Area : contains many
@@ -148,26 +162,33 @@ Main Components
    - Runs on configurable host and port
 
 4. **DataAccessManager** - Reads runtime data from ROS 2 topics
-   - Samples topics using ROS 2 CLI (``ros2 topic echo``)
-   - Handles timeout and error cases gracefully
-   - Returns topic data as JSON with metadata (topic name, timestamp, data)
-   - Configurable timeout per topic (default: 3 seconds for slow publishers)
+   - Uses native rclcpp APIs for fast topic discovery and sampling
+   - Checks publisher counts before sampling to skip idle topics instantly
+   - Returns metadata (type, schema) for topics without publishers
+   - Falls back to ROS 2 CLI only for publishing (``ros2 topic pub``)
+   - Returns topic data as JSON with metadata (topic name, timestamp, type info)
    - Parallel topic sampling with configurable concurrency limit (``max_parallel_topic_samples``, default: 10)
-   - Batched processing to bound resource usage while improving performance
 
-5. **ROS2CLIWrapper** - Executes ROS 2 CLI commands safely
+5. **NativeTopicSampler** - Fast topic sampling using native rclcpp APIs
+   - Discovers topics via ``node->get_topic_names_and_types()``
+   - Checks ``count_publishers()`` before sampling to skip idle topics
+   - Returns metadata instantly for topics without publishers (no CLI timeout)
+   - Significantly improves UX when robot has many idle topics
+
+6. **ROS2CLIWrapper** - Executes ROS 2 CLI commands safely
+   - Used only for publishing (``ros2 topic pub``)
    - Wraps ``popen()`` with RAII for exception safety during command execution
    - Checks command exit status to detect failures
    - Prevents command injection with shell argument escaping
    - Validates command availability before execution
 
-6. **OutputParser** - Converts ROS 2 CLI output to JSON
+7. **OutputParser** - Converts ROS 2 CLI output to JSON
    - Parses YAML output from ``ros2 topic echo`` command
    - Preserves type information (bool → int → double → string precedence)
    - Handles multi-document YAML streams correctly
    - Converts ROS message structures to nested JSON objects
 
-7. **Data Models** - Entity representations
+8. **Data Models** - Entity representations
    - ``Area`` - Physical or logical domain
    - ``Component`` - Hardware or software component
    - ``EntityCache`` - Thread-safe cache of discovered entities
