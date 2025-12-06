@@ -972,7 +972,7 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
         """
         Test POST /components/{component_id}/operations/{operation_name} calls a service.
 
-        @verifies REQ_INTEROP_021
+        @verifies REQ_INTEROP_035
         """
         response = requests.post(
             f'{self.BASE_URL}/components/calibration/operations/calibrate',
@@ -1004,7 +1004,7 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
 
         POST /components/{component_id}/operations/{operation_name}
 
-        @verifies REQ_INTEROP_021
+        @verifies REQ_INTEROP_035
         """
         response = requests.post(
             f'{self.BASE_URL}/components/calibration/operations/nonexistent_op',
@@ -1027,7 +1027,7 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
 
         POST /components/{component_id}/operations/{operation_name}
 
-        @verifies REQ_INTEROP_021
+        @verifies REQ_INTEROP_035
         """
         response = requests.post(
             f'{self.BASE_URL}/components/nonexistent_component/operations/calibrate',
@@ -1049,7 +1049,7 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
 
         POST /components/{component_id}/operations/{operation_name}
 
-        @verifies REQ_INTEROP_021
+        @verifies REQ_INTEROP_035
         """
         invalid_ids = [
             'component;drop',
