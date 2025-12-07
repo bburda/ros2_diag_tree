@@ -1653,3 +1653,92 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
         self.assertTrue(data['capabilities']['configurations'])
 
         print('✓ Root endpoint includes configurations test passed')
+
+    # ========== Operation Schema Tests (test_53-54) ==========
+
+    def test_53_service_operation_has_type_info_schema(self):
+        """
+        Test that service operations include type_info with request/response schemas.
+
+        @verifies REQ_INTEROP_025
+        """
+        components = self._get_json('/components')
+
+        # Find calibration component with the calibrate service
+        calibration = None
+        for comp in components:
+            if comp['id'] == 'calibration':
+                calibration = comp
+                break
+
+        self.assertIsNotNone(calibration, 'Calibration component should exist')
+        self.assertIn('operations', calibration, 'Component should have operations')
+
+        # Find the calibrate service operation
+        calibrate_op = None
+        for op in calibration['operations']:
+            if op['name'] == 'calibrate' and op['kind'] == 'service':
+                calibrate_op = op
+                break
+
+        self.assertIsNotNone(calibrate_op, 'Calibrate service should be listed')
+
+        # Verify type_info is present with request/response schemas
+        self.assertIn('type_info', calibrate_op, 'Service should have type_info')
+        type_info = calibrate_op['type_info']
+
+        self.assertIn('request', type_info, 'Service type_info should have request')
+        self.assertIn('response', type_info, 'Service type_info should have response')
+        self.assertIsInstance(type_info['request'], dict)
+        self.assertIsInstance(type_info['response'], dict)
+
+        # std_srvs/srv/Trigger has empty request and response with success+message
+        self.assertIn('success', type_info['response'])
+        self.assertIn('message', type_info['response'])
+
+        print(f'✓ Service operation type_info test passed: {type_info}')
+
+    def test_54_action_operation_has_type_info_schema(self):
+        """
+        Test that action operations include type_info with goal/result/feedback schemas.
+
+        @verifies REQ_INTEROP_025
+        """
+        components = self._get_json('/components')
+
+        # Find long_calibration component with the action
+        long_cal = None
+        for comp in components:
+            if comp['id'] == 'long_calibration':
+                long_cal = comp
+                break
+
+        self.assertIsNotNone(long_cal, 'Long calibration component should exist')
+        self.assertIn('operations', long_cal, 'Component should have operations')
+
+        # Find the long_calibration action operation
+        action_op = None
+        for op in long_cal['operations']:
+            if op['name'] == 'long_calibration' and op['kind'] == 'action':
+                action_op = op
+                break
+
+        self.assertIsNotNone(action_op, 'Long calibration action should be listed')
+
+        # Verify type_info is present with goal/result/feedback schemas
+        self.assertIn('type_info', action_op, 'Action should have type_info')
+        type_info = action_op['type_info']
+
+        self.assertIn('goal', type_info, 'Action type_info should have goal')
+        self.assertIn('result', type_info, 'Action type_info should have result')
+        self.assertIn('feedback', type_info, 'Action type_info should have feedback')
+        self.assertIsInstance(type_info['goal'], dict)
+        self.assertIsInstance(type_info['result'], dict)
+        self.assertIsInstance(type_info['feedback'], dict)
+
+        # example_interfaces/action/Fibonacci has order in goal, sequence in result/feedback
+        self.assertIn('order', type_info['goal'])
+        self.assertIn('sequence', type_info['result'])
+        self.assertIn('sequence', type_info['feedback'])
+
+        print(f'✓ Action operation type_info test passed: {type_info}')

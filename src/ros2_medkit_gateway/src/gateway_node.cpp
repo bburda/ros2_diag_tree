@@ -109,6 +109,9 @@ GatewayNode::GatewayNode() : Node("ros2_medkit_gateway") {
   // Connect topic sampler to discovery manager for component-topic mapping
   discovery_mgr_->set_topic_sampler(data_access_mgr_->get_native_sampler());
 
+  // Connect type introspection for operation schema enrichment
+  discovery_mgr_->set_type_introspection(data_access_mgr_->get_type_introspection());
+
   // Initial discovery
   refresh_cache();
 

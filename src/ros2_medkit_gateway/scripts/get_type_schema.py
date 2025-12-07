@@ -13,17 +13,27 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """
-Generate JSON schema for ROS 2 message types.
+Generate JSON schema for ROS 2 message, service, and action types.
 
-This script uses rosidl_runtime_py to introspect message types and generate
+This script uses rosidl_runtime_py to introspect types and generate
 a JSON schema representation that includes field names and types recursively.
 
+Supports:
+- Message types (package/msg/Type) - returns schema
+- Service types (package/srv/Type) - returns request and response schemas
+- Action types (package/action/Type) - returns goal, result, and feedback schemas
+
 Usage:
-    python3 get_type_schema.py <message_type>
+    python3 get_type_schema.py <type>
     python3 get_type_schema.py sensor_msgs/msg/Temperature
+    python3 get_type_schema.py std_srvs/srv/Trigger
+    python3 get_type_schema.py example_interfaces/action/Fibonacci
 
 Output:
     JSON object with "name" and "schema" fields, or "error" on failure.
+    For messages: schema is a dict of field names to type info.
+    For services: schema contains "request" and "response" keys.
+    For actions: schema contains "goal", "result", and "feedback" keys.
 """
 
 import json
@@ -38,7 +48,7 @@ from rosidl_parser.definition import (
     UnboundedSequence,
     UnboundedString,
 )
-from rosidl_runtime_py.utilities import get_message
+from rosidl_runtime_py.utilities import get_action, get_message, get_service
 
 
 def type_to_dict(slot_type):
@@ -114,23 +124,106 @@ def get_message_schema(msg_class):
     return schema
 
 
+def get_service_schema(srv_class):
+    """
+    Get the full schema for a service class.
+
+    Args
+    ----
+        srv_class: A ROS 2 service class
+
+    Returns
+    -------
+        dict: Schema with "request" and "response" keys
+
+    """
+    return {
+        'request': get_message_schema(srv_class.Request),
+        'response': get_message_schema(srv_class.Response),
+    }
+
+
+def get_action_schema(action_class):
+    """
+    Get the full schema for an action class.
+
+    Args
+    ----
+        action_class: A ROS 2 action class
+
+    Returns
+    -------
+        dict: Schema with "goal", "result", and "feedback" keys
+
+    """
+    return {
+        'goal': get_message_schema(action_class.Goal),
+        'result': get_message_schema(action_class.Result),
+        'feedback': get_message_schema(action_class.Feedback),
+    }
+
+
+def get_type_category(type_name):
+    """
+    Determine the category of a ROS 2 type.
+
+    Args
+    ----
+        type_name: Full type name (e.g., "std_srvs/srv/Trigger")
+
+    Returns
+    -------
+        str: One of "msg", "srv", "action", or "unknown"
+
+    """
+    if '/msg/' in type_name:
+        return 'msg'
+    elif '/srv/' in type_name:
+        return 'srv'
+    elif '/action/' in type_name:
+        return 'action'
+    return 'unknown'
+
+
 def main():
     """Execute schema generation from command line."""
     if len(sys.argv) != 2:
         result = {
-            'error': 'Usage: get_type_schema.py <message_type>',
-            'example': 'get_type_schema.py sensor_msgs/msg/Temperature'
+            'error': 'Usage: get_type_schema.py <type>',
+            'examples': [
+                'get_type_schema.py sensor_msgs/msg/Temperature',
+                'get_type_schema.py std_srvs/srv/Trigger',
+                'get_type_schema.py example_interfaces/action/Fibonacci',
+            ]
         }
         print(json.dumps(result))
         sys.exit(1)
 
     type_name = sys.argv[1]
+    category = get_type_category(type_name)
 
     try:
-        msg_class = get_message(type_name)
-        schema = get_message_schema(msg_class)
+        if category == 'msg':
+            msg_class = get_message(type_name)
+            schema = get_message_schema(msg_class)
+        elif category == 'srv':
+            srv_class = get_service(type_name)
+            schema = get_service_schema(srv_class)
+        elif category == 'action':
+            action_class = get_action(type_name)
+            schema = get_action_schema(action_class)
+        else:
+            result = {
+                'error': f"Unknown type category for '{type_name}'. "
+                         'Expected /msg/, /srv/, or /action/ in type name.',
+                'type': type_name
+            }
+            print(json.dumps(result))
+            sys.exit(1)
+
         result = {
             'name': type_name,
+            'category': category,
             'schema': schema
         }
         print(json.dumps(result))

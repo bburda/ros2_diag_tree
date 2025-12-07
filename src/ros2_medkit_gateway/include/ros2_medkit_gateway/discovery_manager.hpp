@@ -23,6 +23,7 @@
 
 #include "ros2_medkit_gateway/models.hpp"
 #include "ros2_medkit_gateway/native_topic_sampler.hpp"
+#include "ros2_medkit_gateway/type_introspection.hpp"
 
 namespace ros2_medkit_gateway {
 
@@ -56,6 +57,16 @@ class DiscoveryManager {
   void set_topic_sampler(NativeTopicSampler * sampler);
 
   /**
+   * @brief Set the type introspection for operation schema enrichment
+   *
+   * When set, discover_services() and discover_actions() will populate
+   * the type_info field with schema information.
+   *
+   * @param introspection Pointer to TypeIntrospection (must outlive DiscoveryManager)
+   */
+  void set_type_introspection(TypeIntrospection * introspection);
+
+  /**
    * @brief Refresh the cached topic map
    *
    * Call this to force a rebuild of the component-topic map.
@@ -81,6 +92,7 @@ class DiscoveryManager {
 
   rclcpp::Node * node_;
   NativeTopicSampler * topic_sampler_{nullptr};
+  TypeIntrospection * type_introspection_{nullptr};
 
   // Cached services and actions for lookup
   std::vector<ServiceInfo> cached_services_;

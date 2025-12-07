@@ -76,7 +76,7 @@
                 "components"
               ]
             },
-            "description": "List all discovered components across all areas. Returns component metadata including id, namespace, fqn, type, parent area, and available operations (services and actions)."
+            "description": "List all discovered components across all areas. Returns component metadata including id, namespace, fqn, type, parent area, and available operations (services and actions). Each operation includes type_info with schema information: services have request/response schemas, actions have goal/result/feedback schemas."
           },
           "response": []
         },

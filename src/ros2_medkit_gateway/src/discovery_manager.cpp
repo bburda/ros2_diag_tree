@@ -144,6 +144,16 @@ std::vector<ServiceInfo> DiscoveryManager::discover_services() {
     info.name = extract_name_from_path(service_path);
     info.type = types.empty() ? "" : types[0];
 
+    // Enrich with schema info if TypeIntrospection is available
+    if (type_introspection_ && !info.type.empty()) {
+      try {
+        auto type_info = type_introspection_->get_type_info(info.type);
+        info.type_info = type_info.schema;
+      } catch (const std::exception & e) {
+        RCLCPP_DEBUG(node_->get_logger(), "Could not get schema for service '%s': %s", info.type.c_str(), e.what());
+      }
+    }
+
     services.push_back(info);
   }
 
@@ -191,6 +201,16 @@ std::vector<ActionInfo> DiscoveryManager::discover_actions() {
             info.type = srv_type.substr(0, srv_type.length() - send_goal_suffix.length());
           } else {
             info.type = srv_type;
+          }
+        }
+
+        // Enrich with schema info if TypeIntrospection is available
+        if (type_introspection_ && !info.type.empty()) {
+          try {
+            auto type_info = type_introspection_->get_type_info(info.type);
+            info.type_info = type_info.schema;
+          } catch (const std::exception & e) {
+            RCLCPP_DEBUG(node_->get_logger(), "Could not get schema for action '%s': %s", info.type.c_str(), e.what());
           }
         }
 
@@ -249,6 +269,10 @@ std::optional<ActionInfo> DiscoveryManager::find_action(const std::string & comp
 
 void DiscoveryManager::set_topic_sampler(NativeTopicSampler * sampler) {
   topic_sampler_ = sampler;
+}
+
+void DiscoveryManager::set_type_introspection(TypeIntrospection * introspection) {
+  type_introspection_ = introspection;
 }
 
 void DiscoveryManager::refresh_topic_map() {

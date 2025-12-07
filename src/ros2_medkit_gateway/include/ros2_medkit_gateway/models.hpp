@@ -16,6 +16,7 @@
 
 #include <chrono>
 #include <nlohmann/json.hpp>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -110,23 +111,33 @@ struct Area {
 
 /// Information about a ROS2 service discovered in the system
 struct ServiceInfo {
-  std::string name;       // Service name (e.g., "calibrate")
-  std::string full_path;  // Full service path (e.g., "/powertrain/engine/calibrate")
-  std::string type;       // Service type (e.g., "std_srvs/srv/Trigger")
+  std::string name;               // Service name (e.g., "calibrate")
+  std::string full_path;          // Full service path (e.g., "/powertrain/engine/calibrate")
+  std::string type;               // Service type (e.g., "std_srvs/srv/Trigger")
+  std::optional<json> type_info;  // Schema info with request/response schemas
 
   json to_json() const {
-    return {{"name", name}, {"path", full_path}, {"type", type}, {"kind", "service"}};
+    json j = {{"name", name}, {"path", full_path}, {"type", type}, {"kind", "service"}};
+    if (type_info.has_value()) {
+      j["type_info"] = type_info.value();
+    }
+    return j;
   }
 };
 
 /// Information about a ROS2 action discovered in the system
 struct ActionInfo {
-  std::string name;       // Action name (e.g., "navigate_to_pose")
-  std::string full_path;  // Full action path (e.g., "/navigation/navigate_to_pose")
-  std::string type;       // Action type (e.g., "nav2_msgs/action/NavigateToPose")
+  std::string name;               // Action name (e.g., "navigate_to_pose")
+  std::string full_path;          // Full action path (e.g., "/navigation/navigate_to_pose")
+  std::string type;               // Action type (e.g., "nav2_msgs/action/NavigateToPose")
+  std::optional<json> type_info;  // Schema info with goal/result/feedback schemas
 
   json to_json() const {
-    return {{"name", name}, {"path", full_path}, {"type", type}, {"kind", "action"}};
+    json j = {{"name", name}, {"path", full_path}, {"type", type}, {"kind", "action"}};
+    if (type_info.has_value()) {
+      j["type_info"] = type_info.value();
+    }
+    return j;
   }
 };
 
