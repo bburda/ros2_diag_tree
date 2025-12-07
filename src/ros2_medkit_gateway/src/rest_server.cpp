@@ -888,7 +888,7 @@ void RESTServer::handle_action_status(const httplib::Request & req, httplib::Res
                        {"status", action_status_to_string(goal_info->status)},
                        {"action_path", goal_info->action_path},
                        {"action_type", goal_info->action_type}};
-      if (!goal_info->last_feedback.empty() && !goal_info->last_feedback.is_null()) {
+      if (!goal_info->last_feedback.is_null() && !goal_info->last_feedback.empty()) {
         response["last_feedback"] = goal_info->last_feedback;
       }
       res.set_content(response.dump(2), "application/json");
@@ -925,7 +925,7 @@ void RESTServer::handle_action_status(const httplib::Request & req, httplib::Res
                           {"status", action_status_to_string(goal.status)},
                           {"action_path", goal.action_path},
                           {"action_type", goal.action_type}};
-        if (!goal.last_feedback.empty() && !goal.last_feedback.is_null()) {
+        if (!goal.last_feedback.is_null() && !goal.last_feedback.empty()) {
           goal_json["last_feedback"] = goal.last_feedback;
         }
         goals_array.push_back(goal_json);
@@ -946,7 +946,7 @@ void RESTServer::handle_action_status(const httplib::Request & req, httplib::Res
                        {"status", action_status_to_string(goal_info->status)},
                        {"action_path", goal_info->action_path},
                        {"action_type", goal_info->action_type}};
-      if (!goal_info->last_feedback.empty() && !goal_info->last_feedback.is_null()) {
+      if (!goal_info->last_feedback.is_null() && !goal_info->last_feedback.empty()) {
         response["last_feedback"] = goal_info->last_feedback;
       }
       res.set_content(response.dump(2), "application/json");

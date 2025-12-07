@@ -330,6 +330,38 @@ rclcpp::ParameterValue ConfigurationManager::json_to_parameter_value(const json 
         }
         // Convert other types to string
         return rclcpp::ParameterValue(value.dump());
+      case rclcpp::ParameterType::PARAMETER_BOOL_ARRAY:
+        if (value.is_array()) {
+          if (value.empty()) {
+            return rclcpp::ParameterValue(std::vector<bool>{});
+          }
+          return rclcpp::ParameterValue(value.get<std::vector<bool>>());
+        }
+        break;
+      case rclcpp::ParameterType::PARAMETER_INTEGER_ARRAY:
+        if (value.is_array()) {
+          if (value.empty()) {
+            return rclcpp::ParameterValue(std::vector<int64_t>{});
+          }
+          return rclcpp::ParameterValue(value.get<std::vector<int64_t>>());
+        }
+        break;
+      case rclcpp::ParameterType::PARAMETER_DOUBLE_ARRAY:
+        if (value.is_array()) {
+          if (value.empty()) {
+            return rclcpp::ParameterValue(std::vector<double>{});
+          }
+          return rclcpp::ParameterValue(value.get<std::vector<double>>());
+        }
+        break;
+      case rclcpp::ParameterType::PARAMETER_STRING_ARRAY:
+        if (value.is_array()) {
+          if (value.empty()) {
+            return rclcpp::ParameterValue(std::vector<std::string>{});
+          }
+          return rclcpp::ParameterValue(value.get<std::vector<std::string>>());
+        }
+        break;
       default:
         break;
     }
@@ -348,7 +380,11 @@ rclcpp::ParameterValue ConfigurationManager::json_to_parameter_value(const json 
   if (value.is_string()) {
     return rclcpp::ParameterValue(value.get<std::string>());
   }
-  if (value.is_array() && !value.empty()) {
+  if (value.is_array()) {
+    if (value.empty()) {
+      // Empty array with no type hint - default to string array
+      return rclcpp::ParameterValue(std::vector<std::string>{});
+    }
     // Determine array type from first element
     if (value[0].is_boolean()) {
       return rclcpp::ParameterValue(value.get<std::vector<bool>>());
