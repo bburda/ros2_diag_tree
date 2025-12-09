@@ -23,6 +23,7 @@ This launch file:
 4. Cleans up all processes
 """
 
+import os
 import time
 import unittest
 from urllib.parse import quote
@@ -32,6 +33,41 @@ from launch.actions import TimerAction
 import launch_ros.actions
 import launch_testing.actions
 import requests
+
+
+def get_coverage_env():
+    """
+    Get environment variables for gcov coverage data collection.
+
+    When running with coverage enabled (ENABLE_COVERAGE=ON), subprocess nodes
+    need GCOV_PREFIX set to write coverage data to the correct build directory.
+    This allows integration test coverage to be captured alongside unit tests.
+
+    Returns
+    -------
+    dict
+        Environment variables dict with GCOV_PREFIX and GCOV_PREFIX_STRIP,
+        or empty dict if coverage path cannot be determined.
+
+    """
+    try:
+        from ament_index_python.packages import get_package_prefix
+        pkg_prefix = get_package_prefix('ros2_medkit_gateway')
+        # pkg_prefix is like /path/to/workspace/install/ros2_medkit_gateway
+        # workspace is 2 levels up from install/package_name
+        workspace = os.path.dirname(os.path.dirname(pkg_prefix))
+        build_dir = os.path.join(workspace, 'build', 'ros2_medkit_gateway')
+
+        if os.path.exists(build_dir):
+            # GCOV_PREFIX_STRIP removes leading path components from compiled-in paths
+            # GCOV_PREFIX prepends the new path for .gcda file output
+            return {
+                'GCOV_PREFIX': build_dir,
+                'GCOV_PREFIX_STRIP': str(build_dir.count(os.sep)),
+            }
+    except Exception:
+        pass
+    return {}
 
 
 def encode_topic_path(topic_path: str) -> str:
@@ -68,21 +104,27 @@ def encode_topic_path(topic_path: str) -> str:
 def generate_test_description():
     """Generate launch description with gateway node, demo nodes, and tests."""
     # Launch the ROS 2 Medkit Gateway node
+    # additional_env sets GCOV_PREFIX for coverage data collection from subprocess
     gateway_node = launch_ros.actions.Node(
         package='ros2_medkit_gateway',
         executable='gateway_node',
         name='ros2_medkit_gateway',
         output='screen',
         parameters=[],
+        additional_env=get_coverage_env(),
     )
 
     # Launch demo automotive sensor nodes
+    # All demo nodes also get coverage env for completeness
+    coverage_env = get_coverage_env()
+
     engine_temp_sensor = launch_ros.actions.Node(
         package='ros2_medkit_gateway',
         executable='demo_engine_temp_sensor',
         name='temp_sensor',
         namespace='/powertrain/engine',
         output='screen',
+        additional_env=coverage_env,
     )
 
     rpm_sensor = launch_ros.actions.Node(
@@ -91,6 +133,7 @@ def generate_test_description():
         name='rpm_sensor',
         namespace='/powertrain/engine',
         output='screen',
+        additional_env=coverage_env,
     )
 
     brake_pressure_sensor = launch_ros.actions.Node(
@@ -99,6 +142,7 @@ def generate_test_description():
         name='pressure_sensor',
         namespace='/chassis/brakes',
         output='screen',
+        additional_env=coverage_env,
     )
 
     door_status_sensor = launch_ros.actions.Node(
@@ -107,6 +151,7 @@ def generate_test_description():
         name='status_sensor',
         namespace='/body/door/front_left',
         output='screen',
+        additional_env=coverage_env,
     )
 
     brake_actuator = launch_ros.actions.Node(
@@ -115,6 +160,7 @@ def generate_test_description():
         name='actuator',
         namespace='/chassis/brakes',
         output='screen',
+        additional_env=coverage_env,
     )
 
     light_controller = launch_ros.actions.Node(
@@ -123,6 +169,7 @@ def generate_test_description():
         name='controller',
         namespace='/body/lights',
         output='screen',
+        additional_env=coverage_env,
     )
 
     calibration_service = launch_ros.actions.Node(
@@ -131,6 +178,7 @@ def generate_test_description():
         name='calibration',
         namespace='/powertrain/engine',
         output='screen',
+        additional_env=coverage_env,
     )
 
     long_calibration_action = launch_ros.actions.Node(
@@ -139,6 +187,7 @@ def generate_test_description():
         name='long_calibration',
         namespace='/powertrain/engine',
         output='screen',
+        additional_env=coverage_env,
     )
 
     # Start demo nodes with a delay to ensure gateway starts first

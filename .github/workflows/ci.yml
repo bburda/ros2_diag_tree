@@ -93,15 +93,16 @@ jobs:
             --cmake-args -DCMAKE_BUILD_TYPE=Debug -DENABLE_COVERAGE=ON \
             --event-handlers console_direct+
 
-      - name: Run unit tests only
-        # Run only unit tests for coverage:
+      - name: Run unit and integration tests for coverage
+        # Run all tests for coverage (excluding linters):
         # -LE linter: exclude linters by label
-        # -E integration: exclude integration tests by name regex
+        # Integration tests now capture coverage via GCOV_PREFIX env vars
+        # set in test launch files (test_integration.test.py, test_cors.test.py)
         run: |
           source /opt/ros/jazzy/setup.bash
           source install/setup.bash
           colcon test \
-            --ctest-args -LE linter -E integration \
+            --ctest-args -LE linter \
             --event-handlers console_direct+
 
       - name: Generate coverage report
@@ -150,7 +151,7 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage.info
-          flags: unittests
+          flags: unittests,integration
           name: ros2_medkit-coverage
           fail_ci_if_error: true
           verbose: true

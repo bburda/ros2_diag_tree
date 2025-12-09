@@ -25,6 +25,7 @@ Tests verify:
 6. Multiple allowed origins work correctly
 """
 
+import os
 import time
 import unittest
 
@@ -33,6 +34,41 @@ from launch.actions import TimerAction
 import launch_ros.actions
 import launch_testing.actions
 import requests
+
+
+def get_coverage_env():
+    """
+    Get environment variables for gcov coverage data collection.
+
+    When running with coverage enabled (ENABLE_COVERAGE=ON), subprocess nodes
+    need GCOV_PREFIX set to write coverage data to the correct build directory.
+    This allows integration test coverage to be captured alongside unit tests.
+
+    Returns
+    -------
+    dict
+        Environment variables dict with GCOV_PREFIX and GCOV_PREFIX_STRIP,
+        or empty dict if coverage path cannot be determined.
+
+    """
+    try:
+        from ament_index_python.packages import get_package_prefix
+        pkg_prefix = get_package_prefix('ros2_medkit_gateway')
+        # pkg_prefix is like /path/to/workspace/install/ros2_medkit_gateway
+        # workspace is 2 levels up from install/package_name
+        workspace = os.path.dirname(os.path.dirname(pkg_prefix))
+        build_dir = os.path.join(workspace, 'build', 'ros2_medkit_gateway')
+
+        if os.path.exists(build_dir):
+            # GCOV_PREFIX_STRIP removes leading path components from compiled-in paths
+            # GCOV_PREFIX prepends the new path for .gcda file output
+            return {
+                'GCOV_PREFIX': build_dir,
+                'GCOV_PREFIX_STRIP': str(build_dir.count(os.sep)),
+            }
+    except Exception:
+        pass
+    return {}
 
 
 # Test configuration - two gateway instances with different CORS settings
@@ -48,6 +84,9 @@ API_BASE_PATH = '/api/v1'
 
 def generate_test_description():
     """Generate launch description with two gateway nodes for CORS testing."""
+    # Get coverage environment variables for subprocess coverage collection
+    coverage_env = get_coverage_env()
+
     # Gateway 1: CORS enabled, credentials disabled
     gateway_no_creds = launch_ros.actions.Node(
         package='ros2_medkit_gateway',
@@ -63,6 +102,7 @@ def generate_test_description():
             'cors.allow_credentials': False,
             'cors.max_age_seconds': 3600,
         }],
+        additional_env=coverage_env,
     )
 
     # Gateway 2: CORS enabled, credentials enabled
@@ -80,6 +120,7 @@ def generate_test_description():
             'cors.allow_credentials': True,
             'cors.max_age_seconds': 3600,
         }],
+        additional_env=coverage_env,
     )
 
     # Delay before running tests to allow gateways to start
