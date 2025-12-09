@@ -14,7 +14,6 @@
 
 #include "ros2_medkit_gateway/type_introspection.hpp"
 
-#include <regex>
 #include <sstream>
 #include <stdexcept>
 
@@ -27,48 +26,6 @@ TypeIntrospection::TypeIntrospection(const std::string & scripts_path)
   : scripts_path_(scripts_path)
   , cli_wrapper_(std::make_unique<ROS2CLIWrapper>())
   , output_parser_(std::make_unique<OutputParser>()) {
-}
-
-TopicMetadata TypeIntrospection::get_topic_metadata(const std::string & topic_path) {
-  TopicMetadata metadata;
-  metadata.topic_path = topic_path;
-
-  // Call: ros2 topic info {topic}
-  std::string cmd = "ros2 topic info " + ROS2CLIWrapper::escape_shell_arg(topic_path);
-  std::string output = cli_wrapper_->exec(cmd);
-
-  // Parse output:
-  // Type: sensor_msgs/msg/Temperature
-  // Publisher count: 1
-  // Subscription count: 0
-
-  // Extract type
-  std::regex type_regex(R"(Type:\s*(\S+))");
-  std::smatch type_match;
-  if (std::regex_search(output, type_match, type_regex)) {
-    metadata.type_name = type_match[1].str();
-  }
-
-  // Extract publisher count
-  std::regex pub_regex(R"(Publisher count:\s*(\d+))");
-  std::smatch pub_match;
-  if (std::regex_search(output, pub_match, pub_regex)) {
-    metadata.publisher_count = std::stoi(pub_match[1].str());
-  }
-
-  // Extract subscription count
-  std::regex sub_regex(R"(Subscription count:\s*(\d+))");
-  std::smatch sub_match;
-  if (std::regex_search(output, sub_match, sub_regex)) {
-    metadata.subscriber_count = std::stoi(sub_match[1].str());
-  }
-
-  // Validate that we got the critical type_name field
-  if (metadata.type_name.empty()) {
-    throw std::runtime_error("Failed to parse type name from topic info for: " + topic_path);
-  }
-
-  return metadata;
 }
 
 nlohmann::json TypeIntrospection::get_type_template(const std::string & type_name) {
@@ -189,11 +146,6 @@ TopicTypeInfo TypeIntrospection::get_type_info(const std::string & type_name) {
     auto [it, inserted] = type_cache_.try_emplace(type_name, info);
     return it->second;  // Return cached version (may be from another thread)
   }
-}
-
-void TypeIntrospection::clear_cache() {
-  std::lock_guard<std::mutex> lock(cache_mutex_);
-  type_cache_.clear();
 }
 
 }  // namespace ros2_medkit_gateway

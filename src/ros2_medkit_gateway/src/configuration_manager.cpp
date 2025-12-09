@@ -49,11 +49,6 @@ std::shared_ptr<rclcpp::SyncParametersClient> ConfigurationManager::get_param_cl
   return client;
 }
 
-bool ConfigurationManager::is_node_available(const std::string & node_name) {
-  auto client = get_param_client(node_name);
-  return client->wait_for_service(1s);
-}
-
 ParameterResult ConfigurationManager::list_parameters(const std::string & node_name) {
   ParameterResult result;
 
@@ -187,62 +182,6 @@ ParameterResult ConfigurationManager::set_parameter(const std::string & node_nam
   } catch (const std::exception & e) {
     result.success = false;
     result.error_message = std::string("Failed to set parameter: ") + e.what();
-  }
-
-  return result;
-}
-
-ParameterResult ConfigurationManager::describe_parameter(const std::string & node_name,
-                                                         const std::string & param_name) {
-  ParameterResult result;
-
-  try {
-    auto client = get_param_client(node_name);
-
-    if (!client->wait_for_service(2s)) {
-      result.success = false;
-      result.error_message = "Parameter service not available for node: " + node_name;
-      return result;
-    }
-
-    auto descriptors = client->describe_parameters({param_name});
-    if (descriptors.empty()) {
-      result.success = false;
-      result.error_message = "Parameter not found: " + param_name;
-      return result;
-    }
-
-    const auto & desc = descriptors[0];
-    json desc_obj;
-    desc_obj["name"] = desc.name;
-    desc_obj["type"] = parameter_type_to_string(static_cast<rclcpp::ParameterType>(desc.type));
-    desc_obj["description"] = desc.description;
-    desc_obj["read_only"] = desc.read_only;
-
-    // Add constraints if available
-    if (!desc.additional_constraints.empty()) {
-      desc_obj["additional_constraints"] = desc.additional_constraints;
-    }
-    if (!desc.floating_point_range.empty()) {
-      json range;
-      range["from_value"] = desc.floating_point_range[0].from_value;
-      range["to_value"] = desc.floating_point_range[0].to_value;
-      range["step"] = desc.floating_point_range[0].step;
-      desc_obj["floating_point_range"] = range;
-    }
-    if (!desc.integer_range.empty()) {
-      json range;
-      range["from_value"] = desc.integer_range[0].from_value;
-      range["to_value"] = desc.integer_range[0].to_value;
-      range["step"] = desc.integer_range[0].step;
-      desc_obj["integer_range"] = range;
-    }
-
-    result.success = true;
-    result.data = desc_obj;
-  } catch (const std::exception & e) {
-    result.success = false;
-    result.error_message = std::string("Failed to describe parameter: ") + e.what();
   }
 
   return result;

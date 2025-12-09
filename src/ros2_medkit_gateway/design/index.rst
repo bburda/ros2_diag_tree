@@ -76,8 +76,6 @@ The following diagram shows the relationships between the main components of the
            + list_parameters(): ParameterResult
            + get_parameter(): ParameterResult
            + set_parameter(): ParameterResult
-           + describe_parameter(): ParameterResult
-           + is_node_available(): bool
        }
 
        class NativeTopicSampler {

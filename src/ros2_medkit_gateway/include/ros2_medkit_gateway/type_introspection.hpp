@@ -36,16 +36,6 @@ struct TopicTypeInfo {
 };
 
 /**
- * @brief Metadata about a topic (without actual data)
- */
-struct TopicMetadata {
-  std::string topic_path;   ///< Full topic path (e.g., "/powertrain/engine/temperature")
-  std::string type_name;    ///< Message type name
-  int publisher_count{0};   ///< Number of publishers
-  int subscriber_count{0};  ///< Number of subscribers
-};
-
-/**
  * @brief Provides type introspection capabilities for ROS 2 message types
  *
  * This class allows querying information about ROS 2 topics and message types
@@ -72,17 +62,6 @@ class TypeIntrospection {
   // Disable move (mutex is not movable)
   TypeIntrospection(TypeIntrospection &&) = delete;
   TypeIntrospection & operator=(TypeIntrospection &&) = delete;
-
-  /**
-   * @brief Get metadata for a topic (type, publisher/subscriber counts)
-   *
-   * This method is fast and doesn't require the topic to be publishing.
-   *
-   * @param topic_path Full path to the topic (e.g., "/powertrain/engine/temperature")
-   * @return TopicMetadata containing topic information
-   * @throws std::runtime_error if topic info cannot be retrieved
-   */
-  TopicMetadata get_topic_metadata(const std::string & topic_path);
 
   /**
    * @brief Get full type information including schema (with caching)
@@ -114,11 +93,6 @@ class TypeIntrospection {
    * @throws std::runtime_error if schema cannot be generated
    */
   nlohmann::json get_type_schema(const std::string & type_name);
-
-  /**
-   * @brief Clear the type info cache
-   */
-  void clear_cache();
 
  private:
   std::string scripts_path_;                     ///< Path to helper scripts

@@ -14,11 +14,9 @@
 
 #include "ros2_medkit_gateway/data_access_manager.hpp"
 
-#include <algorithm>
 #include <ament_index_cpp/get_package_share_directory.hpp>
 #include <chrono>
 #include <cmath>
-#include <future>
 #include <sstream>
 
 #include "ros2_medkit_gateway/exceptions.hpp"
@@ -105,25 +103,6 @@ json DataAccessManager::get_topic_sample_with_fallback(const std::string & topic
   return get_topic_sample_native(topic_name, effective_timeout);
 }
 
-json DataAccessManager::get_component_data_with_fallback(const std::string & component_namespace, double timeout_sec) {
-  // Use configured parameter if timeout_sec is negative (default)
-  double effective_timeout = (timeout_sec < 0) ? topic_sample_timeout_sec_ : timeout_sec;
-  // Always use native sampling - much faster for idle topics
-  return get_component_data_native(component_namespace, effective_timeout);
-}
-
-std::vector<std::string> DataAccessManager::find_component_topics_native(const std::string & component_namespace) {
-  auto topics = native_sampler_->discover_topics(component_namespace);
-  std::vector<std::string> topic_names;
-  topic_names.reserve(topics.size());
-  for (const auto & topic : topics) {
-    topic_names.push_back(topic.name);
-  }
-  RCLCPP_INFO(node_->get_logger(), "Found %zu topics under namespace '%s' (native)", topic_names.size(),
-              component_namespace.c_str());
-  return topic_names;
-}
-
 json DataAccessManager::sample_result_to_json(const TopicSampleResult & sample) {
   json result;
   result["topic"] = sample.topic_name;
@@ -181,72 +160,6 @@ json DataAccessManager::get_topic_sample_native(const std::string & topic_name, 
   // Topic not found at all
   RCLCPP_DEBUG(node_->get_logger(), "get_topic_sample_native: topic not available '%s'", topic_name.c_str());
   throw TopicNotAvailableException(topic_name);
-}
-
-json DataAccessManager::get_component_data_native(const std::string & component_namespace, double timeout_sec) {
-  json result = json::array();
-
-  // Use native discovery
-  auto topics = find_component_topics_native(component_namespace);
-
-  if (topics.empty()) {
-    RCLCPP_WARN(node_->get_logger(), "No topics found under namespace '%s'", component_namespace.c_str());
-    return result;
-  }
-
-  // Use native parallel sampling with publisher count optimization
-  auto samples = native_sampler_->sample_topics_parallel(topics, timeout_sec, max_parallel_samples_);
-
-  for (const auto & sample : samples) {
-    try {
-      result.push_back(sample_result_to_json(sample));
-    } catch (const std::exception & e) {
-      RCLCPP_WARN(node_->get_logger(), "Failed to convert sample for '%s': %s", sample.topic_name.c_str(), e.what());
-    }
-  }
-
-  return result;
-}
-
-json DataAccessManager::get_component_data_by_fqn(const std::string & component_fqn, double timeout_sec) {
-  json result = json::array();
-
-  // Get topics this component publishes/subscribes to using the topic map
-  auto component_topics = native_sampler_->get_component_topics(component_fqn);
-
-  // Combine publishes and subscribes into unique set of topics
-  std::set<std::string> all_topics;
-  for (const auto & topic : component_topics.publishes) {
-    all_topics.insert(topic);
-  }
-  for (const auto & topic : component_topics.subscribes) {
-    all_topics.insert(topic);
-  }
-
-  if (all_topics.empty()) {
-    RCLCPP_WARN(node_->get_logger(), "No topics found for component '%s'", component_fqn.c_str());
-    return result;
-  }
-
-  RCLCPP_INFO(node_->get_logger(), "Found %zu topics for component '%s' (publishes: %zu, subscribes: %zu)",
-              all_topics.size(), component_fqn.c_str(), component_topics.publishes.size(),
-              component_topics.subscribes.size());
-
-  // Convert set to vector for parallel sampling
-  std::vector<std::string> topics_vec(all_topics.begin(), all_topics.end());
-
-  // Use native parallel sampling with publisher count optimization
-  auto samples = native_sampler_->sample_topics_parallel(topics_vec, timeout_sec, max_parallel_samples_);
-
-  for (const auto & sample : samples) {
-    try {
-      result.push_back(sample_result_to_json(sample));
-    } catch (const std::exception & e) {
-      RCLCPP_WARN(node_->get_logger(), "Failed to convert sample for '%s': %s", sample.topic_name.c_str(), e.what());
-    }
-  }
-
-  return result;
 }
 
 }  // namespace ros2_medkit_gateway
