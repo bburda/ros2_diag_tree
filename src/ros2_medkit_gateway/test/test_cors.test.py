@@ -64,7 +64,7 @@ def get_coverage_env():
             # GCOV_PREFIX prepends the new path for .gcda file output
             return {
                 'GCOV_PREFIX': build_dir,
-                'GCOV_PREFIX_STRIP': str(workspace.count(os.sep) + 1),
+                'GCOV_PREFIX_STRIP': str(build_dir.count(os.sep)),
             }
     except Exception:
         # Ignore: if coverage environment cannot be determined,
