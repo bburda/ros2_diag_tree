@@ -28,6 +28,23 @@ All endpoints are prefixed with `/api/v1` for API versioning.
 
 - `GET /api/v1/components/{component_id}/data` - Read all topic data from a component
 - `GET /api/v1/components/{component_id}/data/{topic_name}` - Read specific topic data from a component
+- `PUT /api/v1/components/{component_id}/data/{topic_name}` - Publish data to a topic
+
+### Operations Endpoints (Services & Actions)
+
+- `GET /api/v1/components/{component_id}/operations` - List all services and actions for a component
+- `POST /api/v1/components/{component_id}/operations/{operation}` - Call service or send action goal
+- `GET /api/v1/components/{component_id}/operations/{operation}/status` - Get action goal status
+- `GET /api/v1/components/{component_id}/operations/{operation}/result` - Get action goal result
+- `DELETE /api/v1/components/{component_id}/operations/{operation}` - Cancel action goal
+
+### Configurations Endpoints (ROS 2 Parameters)
+
+- `GET /api/v1/components/{component_id}/configurations` - List all parameters for a component
+- `GET /api/v1/components/{component_id}/configurations/{param}` - Get parameter value
+- `PUT /api/v1/components/{component_id}/configurations/{param}` - Set parameter value
+- `DELETE /api/v1/components/{component_id}/configurations/{param}` - Reset parameter to default value
+- `DELETE /api/v1/components/{component_id}/configurations` - Reset all parameters to default values
 
 ### API Reference
 
@@ -285,6 +302,247 @@ curl http://localhost:8080/api/v1/components/temp_sensor/data/invalid-name
 - Read specific sensor value (e.g., just temperature, not all engine data)
 - Lower latency than reading all component data
 - Targeted monitoring of specific metrics
+
+### Operations Endpoints
+
+#### GET /api/v1/components/{component_id}/operations
+
+List all operations (services and actions) available for a component.
+
+**Example:**
+```bash
+curl http://localhost:8080/api/v1/components/calibration/operations
+```
+
+**Response (200 OK):**
+```json
+[
+  {
+    "name": "calibrate",
+    "path": "/powertrain/engine/calibrate",
+    "type": "std_srvs/srv/Trigger",
+    "kind": "service",
+    "type_info": {
+      "schema": "...",
+      "default_value": "..."
+    }
+  }
+]
+```
+
+#### POST /api/v1/components/{component_id}/operations/{operation}
+
+Call a service or send an action goal.
+
+**Example (Service Call):**
+```bash
+curl -X POST http://localhost:8080/api/v1/components/calibration/operations/calibrate \
+  -H "Content-Type: application/json" \
+  -d '{}'
+```
+
+**Response (200 OK - Service):**
+```json
+{
+  "status": "success",
+  "kind": "service",
+  "component_id": "calibration",
+  "operation": "calibrate",
+  "response": {
+    "success": true,
+    "message": "Calibration triggered"
+  }
+}
+```
+
+**Example (Action Goal):**
+```bash
+curl -X POST http://localhost:8080/api/v1/components/long_calibration/operations/long_calibration \
+  -H "Content-Type: application/json" \
+  -d '{"goal": {"order": 10}}'
+```
+
+**Response (202 Accepted - Action):**
+```json
+{
+  "status": "accepted",
+  "kind": "action",
+  "component_id": "long_calibration",
+  "operation": "long_calibration",
+  "goal_id": "abc123def456...",
+  "goal_status": "executing"
+}
+```
+
+#### GET /api/v1/components/{component_id}/operations/{operation}/status
+
+Get the status of an action goal.
+
+**Example (Latest Goal):**
+```bash
+curl http://localhost:8080/api/v1/components/long_calibration/operations/long_calibration/status
+```
+
+**Example (Specific Goal):**
+```bash
+curl "http://localhost:8080/api/v1/components/long_calibration/operations/long_calibration/status?goal_id=abc123"
+```
+
+**Example (All Goals):**
+```bash
+curl "http://localhost:8080/api/v1/components/long_calibration/operations/long_calibration/status?all=true"
+```
+
+**Response (200 OK):**
+```json
+{
+  "goal_id": "abc123def456...",
+  "status": "succeeded",
+  "action_path": "/long_calibration/long_calibration",
+  "action_type": "example_interfaces/action/Fibonacci"
+}
+```
+
+#### DELETE /api/v1/components/{component_id}/operations/{operation}
+
+Cancel a running action goal.
+
+**Example:**
+```bash
+curl -X DELETE "http://localhost:8080/api/v1/components/long_calibration/operations/long_calibration?goal_id=abc123"
+```
+
+**Response (200 OK):**
+```json
+{
+  "status": "canceling",
+  "goal_id": "abc123def456...",
+  "message": "Cancel request sent"
+}
+```
+
+### Configurations Endpoints
+
+#### GET /api/v1/components/{component_id}/configurations
+
+List all parameters for a component.
+
+**Example:**
+```bash
+curl http://localhost:8080/api/v1/components/temp_sensor/configurations
+```
+
+**Response (200 OK):**
+```json
+{
+  "component_id": "temp_sensor",
+  "node_name": "/powertrain/engine/temp_sensor",
+  "parameters": [
+    {
+      "name": "publish_rate",
+      "value": 2.0,
+      "type": "double"
+    },
+    {
+      "name": "min_temp",
+      "value": -40.0,
+      "type": "double"
+    }
+  ]
+}
+```
+
+#### GET /api/v1/components/{component_id}/configurations/{param}
+
+Get a specific parameter value.
+
+**Example:**
+```bash
+curl http://localhost:8080/api/v1/components/temp_sensor/configurations/publish_rate
+```
+
+**Response (200 OK):**
+```json
+{
+  "component_id": "temp_sensor",
+  "parameter": {
+    "name": "publish_rate",
+    "value": 2.0,
+    "type": "double"
+  }
+}
+```
+
+#### PUT /api/v1/components/{component_id}/configurations/{param}
+
+Set a parameter value.
+
+**Example:**
+```bash
+curl -X PUT http://localhost:8080/api/v1/components/temp_sensor/configurations/publish_rate \
+  -H "Content-Type: application/json" \
+  -d '{"value": 5.0}'
+```
+
+**Response (200 OK):**
+```json
+{
+  "status": "success",
+  "component_id": "temp_sensor",
+  "parameter": {
+    "name": "publish_rate",
+    "value": 5.0,
+    "type": "double"
+  }
+}
+```
+
+#### DELETE /api/v1/components/{component_id}/configurations/{param}
+
+Reset a parameter to its default (initial) value.
+
+**Example:**
+```bash
+curl -X DELETE http://localhost:8080/api/v1/components/temp_sensor/configurations/min_temp
+```
+
+**Response (200 OK):**
+```json
+{
+  "name": "min_temp",
+  "value": -40.0,
+  "type": "double",
+  "reset_to_default": true
+}
+```
+
+#### DELETE /api/v1/components/{component_id}/configurations
+
+Reset all parameters to their default (initial) values.
+
+**Example:**
+```bash
+curl -X DELETE http://localhost:8080/api/v1/components/temp_sensor/configurations
+```
+
+**Response (200 OK):**
+```json
+{
+  "node_name": "/powertrain/engine/temp_sensor",
+  "reset_count": 5,
+  "failed_count": 0
+}
+```
+
+**Response (207 Multi-Status - Partial Success):**
+```json
+{
+  "node_name": "/powertrain/engine/temp_sensor",
+  "reset_count": 3,
+  "failed_count": 2,
+  "failed_parameters": ["read_only_param1", "read_only_param2"]
+}
+```
 
 ## Quick Start
 
