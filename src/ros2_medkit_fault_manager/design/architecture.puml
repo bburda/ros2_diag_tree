@@ -1,0 +1,99 @@
+@startuml ros2_medkit_fault_manager_architecture
+
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+
+title ROS 2 Medkit Fault Manager - Class Architecture
+
+package "ROS 2 Framework" {
+    class "rclcpp::Node" {
+        +create_service()
+        +get_logger()
+        +now()
+    }
+}
+
+package "ros2_medkit_msgs" {
+    class "msg::Fault" {
+        +fault_code: string
+        +severity: uint8
+        +description: string
+        +first_occurred: Time
+        +last_occurred: Time
+        +occurrence_count: uint32
+        +status: string
+        +reporting_sources: string[]
+    }
+
+    class "srv::ReportFault" {
+        +Request: fault_code, severity, description, source_id
+        +Response: success, message
+    }
+
+    class "srv::GetFaults" {
+        +Request: filter_by_severity, severity, statuses
+        +Response: faults[]
+    }
+
+    class "srv::ClearFault" {
+        +Request: fault_code
+        +Response: success, message
+    }
+}
+
+package "ros2_medkit_fault_manager" {
+
+    class FaultManagerNode {
+        - storage_: FaultStorage
+        - report_fault_srv_: Service
+        - get_faults_srv_: Service
+        - clear_fault_srv_: Service
+        + get_storage(): FaultStorage&
+        - handle_report_fault()
+        - handle_get_faults()
+        - handle_clear_fault()
+        - is_valid_severity(): bool
+    }
+
+    class FaultStorage {
+        - faults_: map<string, FaultState>
+        - mutex_: mutex
+        + report_fault(): bool
+        + get_faults(): vector<Fault>
+        + clear_fault(): bool
+        + size(): size_t
+    }
+
+    class FaultState <<struct>> {
+        + fault_code: string
+        + severity: uint8
+        + description: string
+        + first_occurred: Time
+        + last_occurred: Time
+        + occurrence_count: uint32
+        + status: string
+        + reporting_sources: set<string>
+        + to_msg(): Fault
+    }
+}
+
+' Relationships
+
+' Inheritance
+FaultManagerNode -up-|> "rclcpp::Node" : extends
+
+' Composition
+FaultManagerNode *-down-> FaultStorage : owns
+
+' FaultStorage contains FaultStates
+FaultStorage o-right-> FaultState : contains many
+
+' FaultState converts to message
+FaultState ..> "msg::Fault" : converts to
+
+' Node uses service types
+FaultManagerNode ..> "srv::ReportFault" : handles
+FaultManagerNode ..> "srv::GetFaults" : handles
+FaultManagerNode ..> "srv::ClearFault" : handles
+
+@enduml
