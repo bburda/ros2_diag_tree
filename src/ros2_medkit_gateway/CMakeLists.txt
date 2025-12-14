@@ -251,6 +251,20 @@ if(BUILD_TESTING)
   install(TARGETS demo_long_calibration_action
     DESTINATION lib/${PROJECT_NAME}
   )
+
+  add_executable(demo_lidar_sensor
+    test/demo_nodes/lidar_sensor.cpp
+  )
+  ament_target_dependencies(demo_lidar_sensor
+    rclcpp
+    rcl_interfaces
+    sensor_msgs
+    std_srvs
+    ros2_medkit_msgs
+  )
+  install(TARGETS demo_lidar_sensor
+    DESTINATION lib/${PROJECT_NAME}
+  )
 endif()
 
 ament_package()

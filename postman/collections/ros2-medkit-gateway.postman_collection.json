@@ -842,6 +842,281 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "LIDAR Fault Workflow",
+      "description": "Complete fault management workflow using the demo LIDAR sensor. The sensor starts with intentionally invalid parameters that generate faults. This workflow demonstrates: (1) reading faults, (2) fixing parameters, (3) clearing faults, and (4) running calibration.",
+      "item": [
+        {
+          "name": "1. GET Initial Faults (Before Fix)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/components/lidar_sensor/faults",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "components",
+                "lidar_sensor",
+                "faults"
+              ]
+            },
+            "description": "Step 1: Check initial faults on the LIDAR sensor. Expected faults:\n- LIDAR_RANGE_INVALID (ERROR): min_range > max_range\n- LIDAR_FREQ_UNSUPPORTED (WARN): scan_frequency > 20.0 Hz\n- LIDAR_CALIBRATION_REQUIRED (INFO): sensor not calibrated"
+          },
+          "response": []
+        },
+        {
+          "name": "2. GET Current Parameters",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/components/lidar_sensor/configurations",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "components",
+                "lidar_sensor",
+                "configurations"
+              ]
+            },
+            "description": "Step 2: Check current parameter values. Initial values are intentionally invalid:\n- min_range: 10.0 (invalid: greater than max_range)\n- max_range: 5.0 (invalid: less than min_range)\n- scan_frequency: 25.0 (unsupported: exceeds 20.0 Hz)"
+          },
+          "response": []
+        },
+        {
+          "name": "3a. PUT Fix min_range Parameter",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"value\": 0.1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/components/lidar_sensor/configurations/min_range",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "components",
+                "lidar_sensor",
+                "configurations",
+                "min_range"
+              ]
+            },
+            "description": "Step 3a: Fix min_range to a valid value (0.1m). This should be less than max_range."
+          },
+          "response": []
+        },
+        {
+          "name": "3b. PUT Fix max_range Parameter",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"value\": 30.0\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/components/lidar_sensor/configurations/max_range",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "components",
+                "lidar_sensor",
+                "configurations",
+                "max_range"
+              ]
+            },
+            "description": "Step 3b: Fix max_range to a valid value (30.0m). This should be greater than min_range."
+          },
+          "response": []
+        },
+        {
+          "name": "3c. PUT Fix scan_frequency Parameter",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"value\": 10.0\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/components/lidar_sensor/configurations/scan_frequency",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "components",
+                "lidar_sensor",
+                "configurations",
+                "scan_frequency"
+              ]
+            },
+            "description": "Step 3c: Fix scan_frequency to a supported value (10.0 Hz). Maximum supported is 20.0 Hz."
+          },
+          "response": []
+        },
+        {
+          "name": "4a. DELETE Clear LIDAR_RANGE_INVALID Fault",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/components/lidar_sensor/faults/LIDAR_RANGE_INVALID",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "components",
+                "lidar_sensor",
+                "faults",
+                "LIDAR_RANGE_INVALID"
+              ]
+            },
+            "description": "Step 4a: Clear the range invalid fault now that parameters are fixed."
+          },
+          "response": []
+        },
+        {
+          "name": "4b. DELETE Clear LIDAR_FREQ_UNSUPPORTED Fault",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/components/lidar_sensor/faults/LIDAR_FREQ_UNSUPPORTED",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "components",
+                "lidar_sensor",
+                "faults",
+                "LIDAR_FREQ_UNSUPPORTED"
+              ]
+            },
+            "description": "Step 4b: Clear the frequency unsupported fault now that scan_frequency is valid."
+          },
+          "response": []
+        },
+        {
+          "name": "5. POST Run LIDAR Calibration",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{base_url}}/components/lidar_sensor/operations/calibrate",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "components",
+                "lidar_sensor",
+                "operations",
+                "calibrate"
+              ]
+            },
+            "description": "Step 5: Run LIDAR calibration service. This sets is_calibrated=true internally, preventing the LIDAR_CALIBRATION_REQUIRED fault from being re-reported."
+          },
+          "response": []
+        },
+        {
+          "name": "6. DELETE Clear LIDAR_CALIBRATION_REQUIRED Fault",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/components/lidar_sensor/faults/LIDAR_CALIBRATION_REQUIRED",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "components",
+                "lidar_sensor",
+                "faults",
+                "LIDAR_CALIBRATION_REQUIRED"
+              ]
+            },
+            "description": "Step 6: Clear the calibration required fault after running calibration."
+          },
+          "response": []
+        },
+        {
+          "name": "7. GET Final Faults (After Fix)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/components/lidar_sensor/faults",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "components",
+                "lidar_sensor",
+                "faults"
+              ]
+            },
+            "description": "Step 7: Verify all faults are cleared. Should return empty faults array (or only cleared faults if using ?status=all)."
+          },
+          "response": []
+        },
+        {
+          "name": "8. GET All Faults History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/components/lidar_sensor/faults?status=all",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "components",
+                "lidar_sensor",
+                "faults"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "all"
+                }
+              ]
+            },
+            "description": "Step 8: View full fault history including cleared faults. All previously active faults should now show status=CLEARED."
+          },
+          "response": []
+        }
+      ]
     }
   ]
 }

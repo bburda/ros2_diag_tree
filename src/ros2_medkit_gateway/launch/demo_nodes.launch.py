@@ -24,12 +24,14 @@ def generate_launch_description():
     - /powertrain (engine sensors + calibration)
     - /chassis (brake sensors + actuators)
     - /body (door sensors + light controller)
+    - /perception (lidar sensor with fault reporting)
 
     Sensors:
     - Engine temperature sensor → /powertrain/engine
     - Engine RPM sensor → /powertrain/engine
     - Brake pressure sensor → /chassis/brakes
     - Door status sensor → /body/door/front_left
+    - LIDAR sensor (with faults) → /perception/lidar
 
     Actuators:
     - Brake actuator → /chassis/brakes
@@ -38,6 +40,7 @@ def generate_launch_description():
     Operations:
     - Calibration service (sync) → /powertrain/engine
     - Long calibration action (async) → /powertrain/engine
+    - LIDAR calibration service → /perception/lidar
     """
     return LaunchDescription([
         # === POWERTRAIN AREA ===
@@ -116,5 +119,26 @@ def generate_launch_description():
             namespace='body/lights',
             output='log',
             emulate_tty=True,
+        ),
+
+        # === PERCEPTION AREA ===
+
+        # LIDAR sensor with intentionally invalid parameters to trigger faults
+        # - min_range > max_range triggers LIDAR_RANGE_INVALID
+        # - scan_frequency > 20.0 triggers LIDAR_FREQ_UNSUPPORTED
+        # - is_calibrated=false triggers LIDAR_CALIBRATION_REQUIRED
+        Node(
+            package='ros2_medkit_gateway',
+            executable='demo_lidar_sensor',
+            name='lidar_sensor',
+            namespace='perception/lidar',
+            output='log',
+            emulate_tty=True,
+            parameters=[{
+                'min_range': 10.0,   # Invalid: greater than max_range
+                'max_range': 5.0,    # Invalid: less than min_range
+                'scan_frequency': 25.0,  # Unsupported: exceeds 20.0 Hz
+                'angular_resolution': 0.5,
+            }],
         ),
     ])

@@ -192,6 +192,22 @@ def generate_test_description():
         additional_env=coverage_env,
     )
 
+    # LIDAR sensor with intentionally invalid parameters to trigger faults
+    lidar_sensor = launch_ros.actions.Node(
+        package='ros2_medkit_gateway',
+        executable='demo_lidar_sensor',
+        name='lidar_sensor',
+        namespace='/perception/lidar',
+        output='screen',
+        additional_env=coverage_env,
+        parameters=[{
+            'min_range': 10.0,   # Invalid: greater than max_range
+            'max_range': 5.0,    # Invalid: less than min_range
+            'scan_frequency': 25.0,  # Unsupported: exceeds 20.0 Hz
+            'angular_resolution': 0.5,
+        }],
+    )
+
     # Launch the fault_manager node for fault REST API tests
     fault_manager_node = launch_ros.actions.Node(
         package='ros2_medkit_fault_manager',
@@ -213,6 +229,7 @@ def generate_test_description():
             light_controller,
             calibration_service,
             long_calibration_action,
+            lidar_sensor,
             fault_manager_node,
         ],
     )
@@ -243,7 +260,7 @@ class TestROS2MedkitGatewayIntegration(unittest.TestCase):
 
     BASE_URL = f'http://localhost:8080{API_BASE_PATH}'
     # Minimum expected components for tests to pass
-    MIN_EXPECTED_COMPONENTS = 7
+    MIN_EXPECTED_COMPONENTS = 8
     # Maximum time to wait for discovery (seconds)
     MAX_DISCOVERY_WAIT = 60.0
     # Interval between discovery checks (seconds)

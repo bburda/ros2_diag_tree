@@ -156,14 +156,23 @@ FaultResult FaultManager::get_faults(const std::string & source_id, bool include
 
   auto response = future.get();
 
-  // Filter by source_id if provided
+  // Filter by source_id if provided (uses prefix matching)
   json faults_array = json::array();
   for (const auto & fault : response->faults) {
-    // If source_id filter is provided, check if component is in reporting_sources
+    // If source_id filter is provided, check if any reporting source starts with the filter
+    // This allows querying by namespace (e.g., "/perception/lidar" matches "/perception/lidar/lidar_sensor")
     if (!source_id.empty()) {
       auto & sources = fault.reporting_sources;
-      if (std::find(sources.begin(), sources.end(), source_id) == sources.end()) {
-        continue;  // Skip faults not reported by this component
+      bool matches = false;
+      for (const auto & src : sources) {
+        // Match if source starts with the filter (prefix match for namespace hierarchy)
+        if (src.rfind(source_id, 0) == 0) {
+          matches = true;
+          break;
+        }
+      }
+      if (!matches) {
+        continue;  // Skip faults not reported by this component/namespace
       }
     }
     faults_array.push_back(fault_to_json(fault));

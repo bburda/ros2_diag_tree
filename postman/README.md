@@ -62,7 +62,10 @@ All endpoints are prefixed with `/api/v1` for API versioning.
 # Terminal 1 - Demo Nodes (sensors, actuators, services, actions)
 ros2 launch ros2_medkit_gateway demo_nodes.launch.py
 
-# Terminal 2 - Gateway
+# Terminal 2 - Fault Manager (required for Faults API and LIDAR Fault Workflow)
+ros2 run ros2_medkit_fault_manager fault_manager_node
+
+# Terminal 3 - Gateway
 ros2 launch ros2_medkit_gateway gateway.launch.py
 ```
 
@@ -98,9 +101,27 @@ ros2 launch ros2_medkit_gateway gateway.launch.py
 3. Click **"GET Specific Fault"** → **Send** (gets fault details by code)
 4. Click **"DELETE Clear Fault"** → **Send** (clears a fault)
 
-> **Note:** Faults API requires `ros2_medkit_fault_manager` node to be running.
-> Launch it with: `ros2 run ros2_medkit_fault_manager fault_manager_node`
+> **Note:** Faults API requires `ros2_medkit_fault_manager` node (see Terminal 2 in startup instructions).
 > Faults are reported by ROS 2 nodes via the ReportFault service, not via REST API.
+
+**LIDAR Fault Workflow (Complete Example):**
+
+The collection includes a complete fault management workflow example using the demo LIDAR sensor.
+The sensor starts with intentionally invalid parameters that generate faults:
+- `LIDAR_RANGE_INVALID` (ERROR): min_range > max_range
+- `LIDAR_FREQ_UNSUPPORTED` (WARN): scan_frequency > 20.0 Hz
+- `LIDAR_CALIBRATION_REQUIRED` (INFO): sensor not calibrated
+
+1. Expand **"LIDAR Fault Workflow"** folder
+2. Execute requests 1-8 in order:
+   - **Step 1:** Check initial faults (3 faults expected)
+   - **Step 2:** View invalid parameter values
+   - **Steps 3a-3c:** Fix parameters via Configurations API
+   - **Steps 4a-4b:** Clear parameter-related faults
+   - **Step 5:** Run LIDAR calibration service
+   - **Step 6:** Clear calibration fault
+   - **Step 7:** Verify all faults cleared
+   - **Step 8:** View complete fault history
 
 ## URL Encoding for Topics
 
