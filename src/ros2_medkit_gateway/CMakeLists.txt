@@ -37,6 +37,22 @@ find_package(ros2_medkit_msgs REQUIRED)
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(cpp_httplib REQUIRED IMPORTED_TARGET cpp-httplib)
 
+# Find OpenSSL (required by jwt-cpp for RS256)
+find_package(OpenSSL REQUIRED)
+
+# Fetch jwt-cpp header-only library
+include(FetchContent)
+FetchContent_Declare(
+  jwt-cpp
+  GIT_REPOSITORY https://github.com/Thalhammer/jwt-cpp.git
+  GIT_TAG        v0.7.0
+  SYSTEM         # Treat as system headers to suppress warnings
+)
+# Disable jwt-cpp warnings by treating its headers as SYSTEM
+set(JWT_CPP_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(JWT_CPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(jwt-cpp)
+
 # Include directories
 include_directories(include)
 
@@ -54,6 +70,12 @@ add_library(gateway_lib STATIC
   src/operation_manager.cpp
   src/configuration_manager.cpp
   src/fault_manager.cpp
+  # Auth module (subfolder)
+  src/auth/auth_config.cpp
+  src/auth/auth_models.cpp
+  src/auth/auth_manager.cpp
+  src/auth/auth_middleware.cpp
+  src/auth/auth_requirement_policy.cpp
 )
 
 ament_target_dependencies(gateway_lib
@@ -70,6 +92,9 @@ target_link_libraries(gateway_lib
   PkgConfig::cpp_httplib
   nlohmann_json::nlohmann_json
   yaml-cpp::yaml-cpp
+  OpenSSL::SSL
+  OpenSSL::Crypto
+  jwt-cpp::jwt-cpp
 )
 
 # Apply coverage flags to library
@@ -106,13 +131,22 @@ install(PROGRAMS scripts/get_type_schema.py
 if(BUILD_TESTING)
   # Linting and code quality checks
   find_package(ament_lint_auto REQUIRED)
+  find_package(ament_cmake_clang_tidy REQUIRED)
 
   # Use custom clang-format and clang-tidy configs from repo root
   set(ament_cmake_clang_format_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../.clang-format")
   set(ament_cmake_clang_tidy_CONFIG_FILE "${CMAKE_CURRENT_SOURCE_DIR}/../../.clang-tidy")
 
-  # Exclude uncrustify (conflicts with clang-format) and cpplint (conflicts with clang-format include order)
-  list(APPEND AMENT_LINT_AUTO_EXCLUDE ament_cmake_uncrustify ament_cmake_cpplint)
+  # Limit clang-tidy to only report issues from our source files (not FetchContent deps)
+  set(ament_cmake_clang_tidy_HEADER_FILTER "^${CMAKE_CURRENT_SOURCE_DIR}/(include|src|test)/")
+
+  # Exclude linters that don't work well with FetchContent dependencies:
+  # - uncrustify/cpplint: conflicts with clang-format
+  # - copyright/lint_cmake: flags generated/fetched files in install/
+  list(APPEND AMENT_LINT_AUTO_EXCLUDE
+    ament_cmake_uncrustify
+    ament_cmake_cpplint
+  )
   ament_lint_auto_find_test_dependencies()
 
   # Add GTest
@@ -120,6 +154,9 @@ if(BUILD_TESTING)
 
   ament_add_gtest(test_gateway_node test/test_gateway_node.cpp)
   target_link_libraries(test_gateway_node gateway_lib)
+
+  ament_add_gtest(test_auth_manager test/test_auth_manager.cpp)
+  target_link_libraries(test_auth_manager gateway_lib)
 
   ament_add_gtest(test_operation_manager test/test_operation_manager.cpp)
   target_link_libraries(test_operation_manager gateway_lib)
@@ -131,6 +168,8 @@ if(BUILD_TESTING)
   if(ENABLE_COVERAGE)
     target_compile_options(test_gateway_node PRIVATE --coverage -O0 -g)
     target_link_options(test_gateway_node PRIVATE --coverage)
+    target_compile_options(test_auth_manager PRIVATE --coverage -O0 -g)
+    target_link_options(test_auth_manager PRIVATE --coverage)
     target_compile_options(test_operation_manager PRIVATE --coverage -O0 -g)
     target_link_options(test_operation_manager PRIVATE --coverage)
     target_compile_options(test_configuration_manager PRIVATE --coverage -O0 -g)
@@ -158,6 +197,13 @@ if(BUILD_TESTING)
     test/test_cors.test.py
     TARGET test_cors
     TIMEOUT 60
+  )
+
+  # Add authentication integration tests
+  add_launch_test(
+    test/test_auth.test.py
+    TARGET test_auth
+    TIMEOUT 120
   )
 
   # Demo automotive nodes

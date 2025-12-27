@@ -22,6 +22,9 @@
 #include <string>
 #include <vector>
 
+#include "ros2_medkit_gateway/auth/auth_config.hpp"
+#include "ros2_medkit_gateway/auth/auth_manager.hpp"
+#include "ros2_medkit_gateway/auth/auth_middleware.hpp"
 #include "ros2_medkit_gateway/config.hpp"
 
 namespace ros2_medkit_gateway {
@@ -30,7 +33,8 @@ class GatewayNode;
 
 class RESTServer {
  public:
-  RESTServer(GatewayNode * node, const std::string & host, int port, const CorsConfig & cors_config);
+  RESTServer(GatewayNode * node, const std::string & host, int port, const CorsConfig & cors_config,
+             const AuthConfig & auth_config);
   ~RESTServer();
 
   void start();
@@ -65,6 +69,11 @@ class RESTServer {
   void handle_get_fault(const httplib::Request & req, httplib::Response & res);
   void handle_clear_fault(const httplib::Request & req, httplib::Response & res);
 
+  // Authentication endpoints (REQ_INTEROP_086, REQ_INTEROP_087)
+  void handle_auth_authorize(const httplib::Request & req, httplib::Response & res);
+  void handle_auth_token(const httplib::Request & req, httplib::Response & res);
+  void handle_auth_revoke(const httplib::Request & req, httplib::Response & res);
+
   // Helper methods
   std::expected<void, std::string> validate_entity_id(const std::string & entity_id) const;
   std::expected<std::string, std::string> get_component_namespace_path(const std::string & component_id) const;
@@ -75,6 +84,9 @@ class RESTServer {
   std::string host_;
   int port_;
   CorsConfig cors_config_;
+  AuthConfig auth_config_;
+  std::unique_ptr<AuthManager> auth_manager_;
+  std::unique_ptr<AuthMiddleware> auth_middleware_;
 
   std::unique_ptr<httplib::Server> server_;
 };
